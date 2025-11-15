@@ -1,0 +1,126 @@
+====================================
+AGENTS (UPDATED)
+====================================
+
+Implement the Livva logic as a set of TypeScript "agents" (service modules). They can be simple functions internally, but their responsibilities must match the behaviors below.
+
+You may refactor previous agents, but keep names and responsibilities clear.
+
+Required agents:
+
+1) Payments / Escrow Agent (core)
+---------------------------------
+This is the main agent that talks to Locus.
+
+Responsibilities:
+- create rental deposits in escrow
+- hold and track funds while conditions are pending
+- coordinate with the Move-In Verification Agent for release
+- release deposits to landlords (full or partial)
+- refund tenants (full or partial)
+- apply small penalties for bad behavior via Locus
+- use trust scores to adjust deposit sizes
+
+Key functions (example signatures, you can refine):
+
+- `createDeposit(params: { listingId: string; tenantEmail: string; landlordEmail: string; amount: number; currency: string }): Promise<EscrowRecord>`
+  - if Locus is configured, use Locus MCP tools
+  - otherwise, optionally fall back to Stripe
+
+- `checkDepositStatus(escrowId: string): Promise<EscrowRecord>`
+  - check current payment/escrow status via Locus MCP
+  - update and return EscrowRecord
+
+- `releaseDeposit(escrowId: string): Promise<EscrowRecord>`
+  - call Move-In Verification Agent first
+  - if approved, instruct Locus to release; if partial, release part; if rejected, refund
+  - update EscrowRecord
+
+- `applyPenalty(params: { eventType: string; fromEmail: string; toEmail: string; amount: number; reason: string }): Promise<void>`
+  - call Locus via MCP to send a small payment (send_to_email or equivalent)
+  - respect per-user and per-period caps (you can track totals in-memory for the demo)
+
+2) Move-In Verification Agent
+-----------------------------
+This agent decides whether escrow should be released.
+
+Inputs:
+- tenant uploads (photos/docs of move-in, condition, meter readings)
+- landlord uploads (lease PDF, ID, proof docs)
+- any simple flags (e.g. dispute present or not)
+
+Output:
+- a structured decision object, for example:
+
+  - `{ decision: "approve_full"; reason: string }`
+  - `{ decision: "approve_partial"; partialAmount: number; reason: string }`
+  - `{ decision: "reject"; reason: string }`
+
+Responsibilities:
+- evaluate provided data (for now, you can stub with rule-based logic)
+- call back into Payments / Escrow Agent to:
+  - trigger `releaseDeposit` or partial release flows
+- provide a human-readable explanation string for the UI
+
+3) Trust Score Agent
+--------------------
+Maintains simple reputation scores for tenants and landlords.
+
+Data:
+- `tenantEmail -> trustScore (0–100)`
+- `landlordEmail -> trustScore (0–100)`
+
+Events that change trust score (examples):
+- fast replies (+)
+- clean move-in (+)
+- verified identity (+)
+- payment reliability (+)
+- late cancellation (–)
+- no-show (–)
+- disputes resolved against them (–)
+
+Responsibilities:
+- `recordEvent(email: string, type: string): void`
+  - adjust score based on event type
+- `getTrustScore(email: string): number`
+- expose trust score to other agents
+
+Trust score MUST influence:
+- required deposit amount (low trust → higher deposit)
+- eligibility for “premium” listings (optional)
+- risk policies inside Payments / Escrow Agent (e.g. max deposit, special handling)
+
+4) Bad-Behavior Penalty Agent
+-----------------------------
+Listens for behavior events and routes them to Payments / Escrow Agent as micro-fees.
+
+Events (examples):
+- `TENANT_LATE_CANCEL`
+- `TENANT_NO_SHOW`
+- `LANDLORD_GHOST`
+- `LANDLORD_LAST_MINUTE_CANCEL`
+
+Responsibilities:
+- map each event to:
+  - who pays (tenant or landlord)
+  - who receives
+  - penalty amount (e.g. 5–15 USDC)
+  - reason string
+- call `paymentsAgent.applyPenalty(...)`
+- use Trust Score Agent to also adjust trustScore when penalties are applied
+
+5) Existing utility agents (lighter)
+------------------------------------
+You can keep or refine these simpler agents:
+
+- **Listing Agent**
+  - unify internal + external listing feeds
+  - optionally suggest listing adjustments (price, description)
+
+- **Match Agent**
+  - rank listings for a tenant profile
+
+- **Communication Agent**
+  - generate initial inquiry + follow-up message templates
+
+These should be thin modules focused on business logic. The heavy payment logic flows through the Payments / Escrow Agent + Locus MCP.

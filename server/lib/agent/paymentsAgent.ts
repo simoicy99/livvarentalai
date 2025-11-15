@@ -1,6 +1,8 @@
 import type { EscrowRecord, PaymentChannel } from "../../../shared/types";
-import { createEscrowRecord, getEscrowById, updateEscrowStatus } from "../services/escrowService";
+import { createEscrowRecord, getEscrowById, updateEscrowStatus, getAllEscrows } from "../services/escrowService";
 import { createDepositSession as createLocusDeposit } from "../integrations/locus";
+import { evaluateMoveIn, getVerificationCase, createVerificationCase } from "./moveInVerificationAgent";
+import { calculateDepositMultiplier, recordEvent as recordTrustEvent } from "./trustScoreAgent";
 import Stripe from "stripe";
 
 const stripe = process.env.STRIPE_SECRET_KEY
@@ -10,7 +12,8 @@ const stripe = process.env.STRIPE_SECRET_KEY
 interface CreateDepositParams {
   listingId: string;
   tenantEmail: string;
-  amount: number;
+  landlordEmail?: string;
+  baseAmount: number;
   currency?: string;
   channelPreference?: PaymentChannel;
 }
@@ -26,6 +29,9 @@ export async function createDeposit(
 ): Promise<CreateDepositResult> {
   const currency = params.currency || "usd";
   
+  const trustMultiplier = calculateDepositMultiplier(params.tenantEmail);
+  const adjustedAmount = Math.round(params.baseAmount * trustMultiplier);
+  
   // prefer locus if available, otherwise use stripe
   const channel: PaymentChannel = params.channelPreference || "locus";
 
@@ -34,19 +40,26 @@ export async function createDeposit(
       // create locus deposit (currently mock)
       const locusResponse = await createLocusDeposit({
         listingId: params.listingId,
-        amount: params.amount,
+        amount: adjustedAmount,
         currency,
         tenantId: params.tenantEmail,
-        landlordId: "landlord_mock",
+        landlordId: params.landlordEmail || "landlord_mock",
       });
 
       const escrow = createEscrowRecord({
         listingId: params.listingId,
         tenantEmail: params.tenantEmail,
-        amount: params.amount,
+        amount: adjustedAmount,
         currency,
         channel: "locus",
         locusTransactionId: locusResponse.sessionId,
+      });
+
+      createVerificationCase({
+        escrowId: escrow.id,
+        listingId: params.listingId,
+        tenantEmail: params.tenantEmail,
+        landlordEmail: params.landlordEmail || "landlord_mock",
       });
 
       return {
@@ -74,7 +87,7 @@ export async function createDeposit(
           product_data: {
             name: `Rental deposit for listing ${params.listingId}`,
           },
-          unit_amount: Math.round(params.amount * 100), // convert to cents
+          unit_amount: Math.round(adjustedAmount * 100), // convert to cents
         },
         quantity: 1,
       },
@@ -87,10 +100,17 @@ export async function createDeposit(
   const escrow = createEscrowRecord({
     listingId: params.listingId,
     tenantEmail: params.tenantEmail,
-    amount: params.amount,
+    amount: adjustedAmount,
     currency,
     channel: "stripe",
     stripeSessionId: session.id,
+  });
+
+  createVerificationCase({
+    escrowId: escrow.id,
+    listingId: params.listingId,
+    tenantEmail: params.tenantEmail,
+    landlordEmail: params.landlordEmail || "landlord_mock",
   });
 
   return {
@@ -117,7 +137,30 @@ export async function releaseDeposit(escrowId: string): Promise<EscrowRecord | n
     return null;
   }
 
-  // in production, this would call locus or stripe apis to release funds
-  // for now, just update status to released
-  return updateEscrowStatus(escrowId, "released");
+  const verificationCase = getVerificationCase(escrowId);
+  if (!verificationCase) {
+    console.warn(`No verification case found for escrow ${escrowId}, releasing anyway`);
+    return updateEscrowStatus(escrowId, "released");
+  }
+
+  const decision = await evaluateMoveIn({
+    escrowId,
+    tenantUploads: verificationCase.tenantUploads,
+    landlordUploads: verificationCase.landlordUploads,
+    hasDispute: verificationCase.hasDispute,
+  });
+
+  if (decision.decision === 'approve_full') {
+    recordTrustEvent(escrow.tenantEmail, 'CLEAN_MOVE_IN', 'Successful move-in verification');
+    return updateEscrowStatus(escrowId, "released");
+  } else if (decision.decision === 'approve_partial') {
+    return updateEscrowStatus(escrowId, "partial_released");
+  } else {
+    return updateEscrowStatus(escrowId, "refunded");
+  }
+}
+
+export function getEscrowsByTenant(tenantEmail: string): EscrowRecord[] {
+  const allEscrows = getAllEscrows();
+  return allEscrows.filter(e => e.tenantEmail === tenantEmail);
 }
