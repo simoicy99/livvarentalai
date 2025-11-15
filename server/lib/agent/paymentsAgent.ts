@@ -1,6 +1,6 @@
 import type { EscrowRecord, PaymentChannel } from "../../../shared/types";
 import { createEscrowRecord, getEscrowById, updateEscrowStatus, getAllEscrows } from "../services/escrowService";
-import { createDepositSession as createLocusDeposit } from "../integrations/locus";
+import { createLocusMCPPayment, type LocusPaymentRequest } from "./locusMCPAgent";
 import { evaluateMoveIn, getVerificationCase, createVerificationCase, updateVerificationDecision } from "./moveInVerificationAgent";
 import { calculateDepositMultiplier, recordEvent as recordTrustEvent } from "./trustScoreAgent";
 import Stripe from "stripe";
@@ -37,14 +37,23 @@ export async function createDeposit(
 
   if (channel === "locus") {
     try {
-      // create locus deposit (currently mock)
-      const locusResponse = await createLocusDeposit({
-        listingId: params.listingId,
+      const paymentRequest: LocusPaymentRequest = {
         amount: adjustedAmount,
         currency,
-        tenantId: params.tenantEmail,
-        landlordId: params.landlordEmail || "landlord_mock",
-      });
+        description: `Rental deposit for listing ${params.listingId}`,
+        recipientEmail: params.landlordEmail || "landlord@livva.com",
+        metadata: {
+          listingId: params.listingId,
+          tenantEmail: params.tenantEmail,
+          type: 'rental_deposit',
+        },
+      };
+
+      const locusResponse = await createLocusMCPPayment(paymentRequest);
+
+      if (!locusResponse.success) {
+        throw new Error(locusResponse.error || "Locus MCP payment failed");
+      }
 
       const escrow = createEscrowRecord({
         listingId: params.listingId,
@@ -52,7 +61,7 @@ export async function createDeposit(
         amount: adjustedAmount,
         currency,
         channel: "locus",
-        locusTransactionId: locusResponse.sessionId,
+        locusTransactionId: locusResponse.paymentId,
       });
 
       createVerificationCase({
@@ -64,10 +73,10 @@ export async function createDeposit(
 
       return {
         escrow,
-        paymentUrl: locusResponse.checkoutUrl,
+        paymentUrl: locusResponse.details?.checkoutUrl,
       };
     } catch (error) {
-      console.error("Locus deposit failed, falling back to Stripe:", error);
+      console.error("Locus MCP payment failed, falling back to Stripe:", error);
       // fall through to stripe
     }
   }
