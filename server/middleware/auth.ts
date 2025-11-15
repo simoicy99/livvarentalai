@@ -1,7 +1,10 @@
 import { clerkMiddleware } from '@clerk/express';
 import type { Request, Response, NextFunction } from 'express';
 
-export const auth = clerkMiddleware();
+export const auth = clerkMiddleware({
+  publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
+  secretKey: process.env.CLERK_SECRET_KEY,
+});
 
 export function requireAuthMiddleware(req: Request, res: Response, next: NextFunction) {
   const { userId } = req.auth || {};
