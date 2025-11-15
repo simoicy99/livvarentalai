@@ -31,37 +31,42 @@ export default function ListingDetail() {
     mutationFn: async () => {
       if (!listing) throw new Error("No listing data");
       
-      const response = await fetch("/api/deposit", {
+      const response = await fetch("/api/escrow/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
           listingId: listing.id,
-          amount: listing.price,
+          tenantEmail: "demo_user@livva.com",
+          landlordEmail: "landlord@livva.com",
+          baseAmount: listing.price,
           currency: "usd",
-          tenantId: "tenant_mock",
-          landlordId: "landlord_mock",
+          channelPreference: "locus",
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to create deposit session");
+        throw new Error("Failed to create deposit escrow");
       }
 
       const data = await response.json();
-      console.log("Deposit session created:", data.checkoutUrl);
+      console.log("Deposit escrow created:", data);
       return data;
     },
     onSuccess: (data) => {
       toast({
-        title: "Deposit session created",
-        description: `Checkout URL: ${data.checkoutUrl}`,
+        title: "Deposit escrow created",
+        description: `Escrow ID: ${data.escrow?.id || 'Created'} - Amount: $${data.finalAmount} ${data.currency?.toUpperCase()}`,
       });
+      
+      if (data.checkoutUrl) {
+        window.open(data.checkoutUrl, '_blank');
+      }
     },
-    onError: (error: Error) => {
+    onError: (error) =>
       toast({
         title: "Error",
-        description: error.message || "Failed to create deposit session",
+        description: error instanceof Error ? error.message : String(error) || "Failed to create deposit escrow",
         variant: "destructive",
       });
     },
