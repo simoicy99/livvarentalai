@@ -21,7 +21,7 @@ Livva is a rental listing aggregator with vibrant orange branding, featuring agg
   - **Communication Agent**: Generates personalized messages for tenant-landlord communication
   - **Payments Agent**: Creates secure deposit escrows via Locus (primary) or Stripe (fallback)
   - **Listing Agent**: Aggregates listings from multiple sources with search filtering
-- **Locus MCP Integration**: OAuth Client Credentials flow for programmable payment transactions
+- **Locus MCP Integration**: Official @locus-technologies/langchain-mcp-m2m library with OAuth Client Credentials flow using ChatAnthropic for AI-driven payment transactions
 - **Community Posts**: Agentic behavior display with user posts and agent activity feed
 - Agent demo page showcasing full workflow (matching → messaging → deposits)
 - Agent console displaying real-time agent activity
@@ -123,6 +123,7 @@ Preferred communication style: Simple, everyday language.
   - `agent/agentService.ts` (Listing Agent): Listing aggregation from multiple sources with search filtering
   - `agent/matchAgent.ts` (Match Agent): Scores and ranks listings based on tenant preferences
   - `agent/communicationAgent.ts` (Communication Agent): Generates personalized messages
+  - `agent/locusMCPAgent.ts` (Locus MCP Agent): Official Locus MCP integration using ChatAnthropic and OAuth client credentials for programmable payments
   - `agent/paymentsAgent.ts` (Payments Agent): Manages deposits via Locus (primary) or Stripe (fallback)
 - **Supporting Services:**
   - `services/escrowService.ts`: In-memory escrow record storage (will be database in production)
@@ -195,6 +196,10 @@ Preferred communication style: Simple, everyday language.
 - `DATABASE_URL`: Neon PostgreSQL connection string
 - `SESSION_SECRET`: Session encryption key
 - `STRIPE_SECRET_KEY`: Stripe API credentials
+- `ANTHROPIC_API_KEY`: Anthropic Claude API for Locus MCP agent
+- `LOCUS_CLIENT_ID`: Locus OAuth client ID
+- `LOCUS_CLIENT_SECRET`: Locus OAuth client secret
+- `LOCUS_MCP_URL`: Locus MCP endpoint (default: https://mcp.paywithlocus.com/mcp)
 - `AI_INTEGRATIONS_OPENAI_API_KEY`: OpenAI access
 - `ISSUER_URL`: Replit auth OIDC endpoint
 
@@ -212,9 +217,12 @@ Preferred communication style: Simple, everyday language.
 - Replit Deployment: Hosting environment with automatic provisioning
 
 **Payment Processing:**
-- Locus Deposit Integration: Property holds and deposit management
-- Mock deposit sessions for testing deposit flows
-- Future: Stripe integration for full payment processing
+- Locus MCP Integration: Official @locus-technologies/langchain-mcp-m2m library with OAuth Client Credentials
+  - ChatAnthropic (Claude 3.5 Sonnet) drives MCP tool calls for payment operations
+  - Environment helper (`server/lib/env.ts`) for secure credential management
+  - Singleton MCP client pattern for efficient connection reuse
+  - Graceful fallback to mock mode when credentials unavailable
+- Stripe integration for alternative payment processing
 
 **AI Services:**
 - OpenAI API: GPT-5 model for matchmaking intelligence
