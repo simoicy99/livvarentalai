@@ -152,7 +152,6 @@ export class DatabaseStorage implements IStorage {
       return await db
         .select()
         .from(listings)
-        .where(eq(listings.available, true))
         .orderBy(desc(listings.createdAt))
         .limit(50);
     }
@@ -161,13 +160,10 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(listings)
       .where(
-        and(
-          eq(listings.available, true),
-          or(
-            sql`${listings.title} ILIKE ${'%' + query + '%'}`,
-            sql`${listings.city} ILIKE ${'%' + query + '%'}`,
-            sql`${listings.description} ILIKE ${'%' + query + '%'}`
-          )
+        or(
+          sql`${listings.title} ILIKE ${'%' + query + '%'}`,
+          sql`${listings.city} ILIKE ${'%' + query + '%'}`,
+          sql`${listings.description} ILIKE ${'%' + query + '%'}`
         )
       )
       .orderBy(desc(listings.createdAt))
@@ -235,7 +231,7 @@ export class DatabaseStorage implements IStorage {
   async markMessagesAsRead(userId: string, senderId: string): Promise<void> {
     await db
       .update(messages)
-      .set({ read: true })
+      .set({ isRead: true })
       .where(and(eq(messages.receiverId, userId), eq(messages.senderId, senderId)));
   }
 
@@ -250,7 +246,7 @@ export class DatabaseStorage implements IStorage {
         .select()
         .from(matches)
         .where(eq(matches.tenantId, userId))
-        .orderBy(desc(matches.matchScore));
+        .orderBy(desc(matches.score));
     } else {
       const landlordListings = await db
         .select({ id: listings.id })
@@ -265,14 +261,14 @@ export class DatabaseStorage implements IStorage {
         .where(
           sql`${matches.listingId} IN (${sql.join(landlordListings.map(l => sql`${l.id}`), sql`, `)})`
         )
-        .orderBy(desc(matches.matchScore));
+        .orderBy(desc(matches.score));
     }
   }
 
   async updateMatchStatus(id: string, status: Match["status"]): Promise<Match> {
     const [match] = await db
       .update(matches)
-      .set({ status, updatedAt: new Date() })
+      .set({ status })
       .where(eq(matches.id, id))
       .returning();
     return match;
@@ -402,7 +398,7 @@ export class DatabaseStorage implements IStorage {
       const [activeListings] = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(listings)
-        .where(and(eq(listings.landlordId, userId), eq(listings.available, true)));
+        .where(eq(listings.landlordId, userId));
 
       const landlordListings = await db
         .select({ id: listings.id })
@@ -423,7 +419,7 @@ export class DatabaseStorage implements IStorage {
       const [messagesCount] = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(messages)
-        .where(and(eq(messages.receiverId, userId), eq(messages.read, false)));
+        .where(and(eq(messages.receiverId, userId), eq(messages.isRead, false)));
 
       return {
         listingsCount: listingsCount?.count || 0,
@@ -440,7 +436,7 @@ export class DatabaseStorage implements IStorage {
       const [messagesCount] = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(messages)
-        .where(and(eq(messages.receiverId, userId), eq(messages.read, false)));
+        .where(and(eq(messages.receiverId, userId), eq(messages.isRead, false)));
 
       return {
         matchesCount: matchesCount?.count || 0,
@@ -449,6 +445,73 @@ export class DatabaseStorage implements IStorage {
         activeListings: 0,
       };
     }
+  }
+
+  async createCommunityPost(post: InsertCommunityPost): Promise<CommunityPost> {
+    const [created] = await db.insert(communityPosts).values(post).returning();
+    return created;
+  }
+
+  async getCommunityPosts(city?: string, limit: number = 20): Promise<CommunityPost[]> {
+    if (city) {
+      return await db
+        .select()
+        .from(communityPosts)
+        .where(eq(communityPosts.city, city))
+        .orderBy(desc(communityPosts.createdAt))
+        .limit(limit);
+    }
+    return await db
+      .select()
+      .from(communityPosts)
+      .orderBy(desc(communityPosts.createdAt))
+      .limit(limit);
+  }
+
+  async getCommunityPost(id: number): Promise<CommunityPost | undefined> {
+    const [post] = await db.select().from(communityPosts).where(eq(communityPosts.id, id));
+    return post;
+  }
+
+  async updateCommunityPost(id: number, data: Partial<InsertCommunityPost>): Promise<CommunityPost> {
+    const [post] = await db
+      .update(communityPosts)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(communityPosts.id, id))
+      .returning();
+    return post;
+  }
+
+  async deleteCommunityPost(id: number): Promise<void> {
+    await db.delete(communityPosts).where(eq(communityPosts.id, id));
+  }
+
+  async saveListing(save: InsertSavedListing): Promise<SavedListing> {
+    const [created] = await db.insert(savedListings).values(save).returning();
+    return created;
+  }
+
+  async getSavedListings(userId: string): Promise<SavedListing[]> {
+    return await db
+      .select()
+      .from(savedListings)
+      .where(eq(savedListings.userId, userId))
+      .orderBy(desc(savedListings.createdAt));
+  }
+
+  async unsaveListing(userId: string, listingId: number): Promise<void> {
+    await db
+      .delete(savedListings)
+      .where(and(eq(savedListings.userId, userId), eq(savedListings.listingId, listingId)));
+  }
+
+  async isListingSaved(userId: string, listingId: number): Promise<boolean> {
+    const [result] = await db
+      .select()
+      .from(savedListings)
+      .where(and(eq(savedListings.userId, userId), eq(savedListings.listingId, listingId)))
+      .limit(1);
+    return !!result;
   }
 }
 
