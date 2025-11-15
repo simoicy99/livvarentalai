@@ -422,10 +422,11 @@ export function registerRoutes(app: Express): Server {
   app.delete("/api/saved/:listingId", async (req, res) => {
     try {
       const { userId } = req.body;
-      const listingId = req.params.listingId;
+      const listingIdStr = req.params.listingId;
+      const listingId = parseInt(listingIdStr, 10);
 
-      if (!userId || !listingId) {
-        return res.status(400).json({ error: "Missing userId or listingId" });
+      if (!userId || isNaN(listingId)) {
+        return res.status(400).json({ error: "Missing or invalid userId or listingId" });
       }
 
       await db
