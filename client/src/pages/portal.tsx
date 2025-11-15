@@ -298,6 +298,47 @@ const demoPenalties = [
   }
 ];
 
+const demoRentPayments = [
+  {
+    id: "rent-1",
+    listingId: "internal_3",
+    listingTitle: "Private Room in Mission District",
+    landlordEmail: "landlord1@livva.com",
+    landlordName: "Sarah Chen",
+    amount: 1450,
+    currency: "usd",
+    status: "paid",
+    paidAt: "2024-11-01T09:00:00Z",
+    dueDate: "2024-11-01",
+    period: "November 2024"
+  },
+  {
+    id: "rent-2",
+    listingId: "internal_3",
+    listingTitle: "Private Room in Mission District",
+    landlordEmail: "landlord1@livva.com",
+    landlordName: "Sarah Chen",
+    amount: 1450,
+    currency: "usd",
+    status: "paid",
+    paidAt: "2024-10-01T10:30:00Z",
+    dueDate: "2024-10-01",
+    period: "October 2024"
+  },
+  {
+    id: "rent-3",
+    listingId: "zillow_5",
+    listingTitle: "Private Room in Noe Valley",
+    landlordEmail: "landlord2@livva.com",
+    landlordName: "Michael Rodriguez",
+    amount: 1650,
+    currency: "usd",
+    status: "upcoming",
+    dueDate: "2024-12-01",
+    period: "December 2024"
+  }
+];
+
 const menuItems = [
   { id: "saved", icon: Heart, label: "Saved Listings", href: "/portal?tab=saved" },
   { id: "matches", icon: Building2, label: "AI Matches", href: "/portal?tab=matches" },
@@ -306,6 +347,7 @@ const menuItems = [
   { id: "trust", icon: Shield, label: "Trust Score", href: "/portal?tab=trust" },
   { id: "verification", icon: FileCheck, label: "Move-In Verify", href: "/portal?tab=verification" },
   { id: "penalties", icon: AlertTriangle, label: "Penalties", href: "/portal?tab=penalties" },
+  { id: "payments", icon: DollarSign, label: "Pay Rent", href: "/portal?tab=payments" },
   { id: "locus", icon: DollarSign, label: "Locus Agent", href: "/portal?tab=locus" }
 ];
 
@@ -318,7 +360,10 @@ export default function Portal() {
   const [locusPrompt, setLocusPrompt] = useState("");
   const [locusResponse, setLocusResponse] = useState("");
   const [locusLoading, setLocusLoading] = useState(false);
-  const { toast } = useToast();
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [selectedRental, setSelectedRental] = useState("");
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const { toast} = useToast();
 
   const urlParams = new URLSearchParams(searchString);
   const activeTab = urlParams.get('tab') || 'saved';
@@ -401,6 +446,55 @@ export default function Portal() {
       });
     } finally {
       setLocusLoading(false);
+    }
+  };
+
+  const handleRentPayment = async () => {
+    if (!selectedRental || !paymentAmount) {
+      toast({
+        title: "Missing information",
+        description: "Please select a rental and enter payment amount",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setPaymentProcessing(true);
+
+    try {
+      const response = await fetch("/api/rent/payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rentalId: selectedRental,
+          amount: parseFloat(paymentAmount),
+          currency: "usd",
+          tenantEmail: userEmail,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to process payment");
+      }
+
+      const data = await response.json();
+      
+      toast({
+        title: "Payment successful!",
+        description: `Your rent payment of $${paymentAmount} has been processed. Your trust score has been improved!`,
+      });
+
+      setPaymentAmount("");
+      setSelectedRental("");
+    } catch (error) {
+      console.error("Payment error:", error);
+      toast({
+        title: "Payment failed",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setPaymentProcessing(false);
     }
   };
 
@@ -1153,6 +1247,168 @@ export default function Portal() {
                 ))}
               </div>
             )}
+          </div>
+        );
+
+      case "payments":
+        return (
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Pay Rent with Stripe</h2>
+              <p className="text-muted-foreground">Pay your rent securely and improve your trust score</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Make a Payment</CardTitle>
+                  <CardDescription>Pay rent to your landlord via Stripe</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Select Rental</label>
+                    <select
+                      value={selectedRental}
+                      onChange={(e) => {
+                        setSelectedRental(e.target.value);
+                        const selected = demoRentPayments.find(r => r.id === e.target.value);
+                        if (selected && selected.status === 'upcoming') {
+                          setPaymentAmount(selected.amount.toString());
+                        }
+                      }}
+                      className="w-full p-2 border rounded-md bg-background"
+                      data-testid="select-rental"
+                    >
+                      <option value="">Choose a rental...</option>
+                      {demoRentPayments.filter(r => r.status === 'upcoming').map((rent) => (
+                        <option key={rent.id} value={rent.id}>
+                          {rent.listingTitle} - {rent.period} (${rent.amount})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Amount (USD)</label>
+                    <Input
+                      type="number"
+                      placeholder="0.00"
+                      value={paymentAmount}
+                      onChange={(e) => setPaymentAmount(e.target.value)}
+                      disabled={paymentProcessing}
+                      data-testid="input-payment-amount"
+                    />
+                  </div>
+
+                  <Button
+                    onClick={handleRentPayment}
+                    disabled={paymentProcessing || !selectedRental || !paymentAmount}
+                    className="w-full"
+                    data-testid="button-pay-rent"
+                  >
+                    {paymentProcessing ? (
+                      <>
+                        <Clock className="h-4 w-4 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <DollarSign className="h-4 w-4 mr-2" />
+                        Pay ${paymentAmount || '0.00'}
+                      </>
+                    )}
+                  </Button>
+
+                  <div className="p-3 bg-muted rounded-lg">
+                    <p className="text-xs text-muted-foreground">
+                      <Shield className="h-3 w-3 inline mr-1" />
+                      Secure payment processing by Stripe. Successful payments improve your trust score!
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Payment History</CardTitle>
+                  <CardDescription>Your past rent payments</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[400px]">
+                    <div className="space-y-3">
+                      {demoRentPayments.map((payment) => (
+                        <div
+                          key={payment.id}
+                          className="p-3 border rounded-lg hover-elevate"
+                          data-testid={`payment-history-${payment.id}`}
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">{payment.listingTitle}</p>
+                              <p className="text-xs text-muted-foreground">{payment.period}</p>
+                            </div>
+                            <Badge
+                              variant={payment.status === 'paid' ? 'default' : 'outline'}
+                              data-testid={`badge-payment-status-${payment.id}`}
+                            >
+                              {payment.status === 'paid' && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                              {payment.status === 'upcoming' && <Clock className="h-3 w-3 mr-1" />}
+                              {payment.status.toUpperCase()}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">
+                              {payment.landlordName}
+                            </span>
+                            <span className="font-semibold">${payment.amount}</span>
+                          </div>
+                          {payment.paidAt && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Paid on {new Date(payment.paidAt).toLocaleDateString()}
+                            </p>
+                          )}
+                          {payment.status === 'upcoming' && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Due {new Date(payment.dueDate).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Trust Score Benefits</CardTitle>
+                <CardDescription>How rent payments improve your trust score</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm text-muted-foreground">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-foreground">On-time payments: +10 points</p>
+                    <p className="text-xs">Pay your rent before the due date to earn trust score points</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-foreground">Payment history: Build reputation</p>
+                    <p className="text-xs">Consistent payment history shows reliability to future landlords</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-foreground">Verified transactions: Security</p>
+                    <p className="text-xs">Stripe-verified payments provide proof of payment for both parties</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         );
 
