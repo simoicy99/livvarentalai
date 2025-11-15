@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { MessageSquare, Heart, DollarSign, User, Trash2, ExternalLink, Building2 } from "lucide-react";
+import { MessageSquare, Heart, DollarSign, User, Trash2, ExternalLink, Building2, Shield, FileCheck, AlertTriangle } from "lucide-react";
 import { Link } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -38,8 +38,46 @@ type MatchResult = {
   reasons: string[];
 };
 
+type TrustProfile = {
+  email: string;
+  score: number;
+  events: Array<{
+    type: string;
+    delta: number;
+    reason: string;
+    timestamp: string;
+  }>;
+  verifiedIdentity: boolean;
+  verifiedPhone: boolean;
+  verifiedEmail: boolean;
+};
+
+type VerificationCase = {
+  escrowId: string;
+  listingId: string;
+  tenantEmail: string;
+  landlordEmail: string;
+  tenantUploads: number;
+  landlordUploads: number;
+  hasDispute: boolean;
+  status: string;
+};
+
+type Penalty = {
+  id: string;
+  eventType: string;
+  fromEmail: string;
+  toEmail: string;
+  amount: number;
+  currency: string;
+  reason: string;
+  status: string;
+  timestamp: string;
+};
+
 export default function Portal() {
   const [userId] = useState("demo_user");
+  const [userEmail] = useState("demo_user@livva.com");
   const { toast } = useToast();
 
   const { data: savedListings = [], isLoading: loadingSaved } = useQuery<SavedListing[]>({
@@ -55,6 +93,20 @@ export default function Portal() {
   const { data: matches = [], isLoading: loadingMatches } = useQuery<MatchResult[]>({
     queryKey: ["/api/matches", userId],
     enabled: !!userId,
+  });
+
+  const { data: trustProfile, isLoading: loadingTrust } = useQuery<TrustProfile>({
+    queryKey: ["/api/trust", userEmail],
+    enabled: !!userEmail,
+  });
+
+  const { data: verificationCases = [], isLoading: loadingVerifications } = useQuery<VerificationCase[]>({
+    queryKey: ["/api/verification"],
+  });
+
+  const { data: penalties = [], isLoading: loadingPenalties } = useQuery<Penalty[]>({
+    queryKey: ["/api/penalties"],
+    queryFn: () => fetch(`/api/penalties?email=${userEmail}`).then(r => r.json()),
   });
 
   const deleteSavedMutation = useMutation({
@@ -94,7 +146,7 @@ export default function Portal() {
         </div>
 
         <Tabs defaultValue="saved" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsList className="grid w-full grid-cols-7 mb-6">
             <TabsTrigger value="saved" data-testid="tab-saved">
               <Heart className="h-4 w-4 mr-2" />
               Saved
@@ -110,6 +162,18 @@ export default function Portal() {
             <TabsTrigger value="finances" data-testid="tab-finances">
               <DollarSign className="h-4 w-4 mr-2" />
               Finances
+            </TabsTrigger>
+            <TabsTrigger value="trust" data-testid="tab-trust">
+              <Shield className="h-4 w-4 mr-2" />
+              Trust
+            </TabsTrigger>
+            <TabsTrigger value="verification" data-testid="tab-verification">
+              <FileCheck className="h-4 w-4 mr-2" />
+              Verify
+            </TabsTrigger>
+            <TabsTrigger value="penalties" data-testid="tab-penalties">
+              <AlertTriangle className="h-4 w-4 mr-2" />
+              Penalties
             </TabsTrigger>
           </TabsList>
 
@@ -354,6 +418,225 @@ export default function Portal() {
                                     View Listing
                                   </Button>
                                 </Link>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="trust">
+            <Card>
+              <CardHeader>
+                <CardTitle>Trust Score</CardTitle>
+                <CardDescription>
+                  Your reputation and verification status
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loadingTrust ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Loading trust profile...
+                  </div>
+                ) : trustProfile ? (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between p-6 bg-muted rounded-lg">
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1">Your Trust Score</p>
+                        <p className="text-4xl font-bold" data-testid="text-trust-score">
+                          {trustProfile.score}
+                          <span className="text-xl text-muted-foreground">/100</span>
+                        </p>
+                      </div>
+                      <Shield className="h-16 w-16 text-primary" />
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="p-4 bg-card border rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <FileCheck className="h-4 w-4 text-muted-foreground" />
+                          <p className="text-sm font-medium">Email</p>
+                        </div>
+                        <Badge variant={trustProfile.verifiedEmail ? "default" : "outline"}>
+                          {trustProfile.verifiedEmail ? "Verified" : "Not Verified"}
+                        </Badge>
+                      </div>
+                      <div className="p-4 bg-card border rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <FileCheck className="h-4 w-4 text-muted-foreground" />
+                          <p className="text-sm font-medium">Phone</p>
+                        </div>
+                        <Badge variant={trustProfile.verifiedPhone ? "default" : "outline"}>
+                          {trustProfile.verifiedPhone ? "Verified" : "Not Verified"}
+                        </Badge>
+                      </div>
+                      <div className="p-4 bg-card border rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <FileCheck className="h-4 w-4 text-muted-foreground" />
+                          <p className="text-sm font-medium">Identity</p>
+                        </div>
+                        <Badge variant={trustProfile.verifiedIdentity ? "default" : "outline"}>
+                          {trustProfile.verifiedIdentity ? "Verified" : "Not Verified"}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div>
+                      <h3 className="text-sm font-medium mb-3">Recent Activity</h3>
+                      <ScrollArea className="h-[300px]">
+                        <div className="space-y-2">
+                          {trustProfile.events.slice(0, 10).map((event, idx) => (
+                            <div key={idx} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                              <div className="flex-1">
+                                <p className="text-sm font-medium">{event.type.replace(/_/g, ' ')}</p>
+                                <p className="text-xs text-muted-foreground">{event.reason}</p>
+                              </div>
+                              <Badge variant={event.delta > 0 ? "default" : "destructive"}>
+                                {event.delta > 0 ? "+" : ""}{event.delta}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Shield className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground">No trust profile found</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="verification">
+            <Card>
+              <CardHeader>
+                <CardTitle>Move-In Verifications</CardTitle>
+                <CardDescription>
+                  Document verification for deposit releases
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loadingVerifications ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Loading verification cases...
+                  </div>
+                ) : verificationCases.length === 0 ? (
+                  <div className="text-center py-12">
+                    <FileCheck className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground mb-4">No verification cases yet</p>
+                    <p className="text-sm text-muted-foreground">
+                      Verification cases are created when you create a deposit escrow
+                    </p>
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[500px]">
+                    <div className="space-y-4">
+                      {verificationCases.map((verificationCase) => (
+                        <Card key={verificationCase.escrowId} className="hover-elevate">
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Badge variant={verificationCase.status === "approved" ? "default" : "outline"}>
+                                    {verificationCase.status}
+                                  </Badge>
+                                  <span className="font-medium">Escrow {verificationCase.escrowId.slice(0, 8)}</span>
+                                </div>
+                                <p className="text-sm text-muted-foreground mb-1">
+                                  Listing: {verificationCase.listingId}
+                                </p>
+                                <div className="flex gap-4 mt-3">
+                                  <div className="flex items-center gap-2">
+                                    <FileCheck className="h-4 w-4 text-primary" />
+                                    <span className="text-sm">
+                                      Tenant: {verificationCase.tenantUploads} uploads
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <FileCheck className="h-4 w-4 text-primary" />
+                                    <span className="text-sm">
+                                      Landlord: {verificationCase.landlordUploads} uploads
+                                    </span>
+                                  </div>
+                                </div>
+                                {verificationCase.hasDispute && (
+                                  <Badge variant="destructive" className="mt-2">
+                                    Dispute Active
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="penalties">
+            <Card>
+              <CardHeader>
+                <CardTitle>Penalties & Fees</CardTitle>
+                <CardDescription>
+                  Behavior-based micro-payments and penalties
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loadingPenalties ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Loading penalties...
+                  </div>
+                ) : penalties.length === 0 ? (
+                  <div className="text-center py-12">
+                    <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground mb-4">No penalties recorded</p>
+                    <p className="text-sm text-muted-foreground">
+                      Great! Keep up the good behavior
+                    </p>
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[500px]">
+                    <div className="space-y-4">
+                      {penalties.map((penalty) => (
+                        <Card key={penalty.id} className="hover-elevate">
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Badge variant="destructive">
+                                    {penalty.eventType.replace(/_/g, ' ')}
+                                  </Badge>
+                                  <span className="font-medium">
+                                    {penalty.amount} {penalty.currency}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-muted-foreground mb-1">
+                                  {penalty.reason}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  From: {penalty.fromEmail} → To: {penalty.toEmail}
+                                </p>
+                                <div className="flex items-center gap-2 mt-2">
+                                  <Badge variant={penalty.status === "completed" ? "default" : "outline"}>
+                                    {penalty.status}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">
+                                    {new Date(penalty.timestamp).toLocaleDateString()}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           </CardContent>

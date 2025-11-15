@@ -7,9 +7,12 @@ import { getFeedPage } from "./lib/agent/agentService";
 import { createDepositSession } from "./lib/integrations/locus";
 import { matchListingsToTenant } from "./lib/agent/matchAgent";
 import { generateInitialMessage, generateFollowUpMessage } from "./lib/agent/communicationAgent";
-import { createDeposit, checkDepositStatus, releaseDeposit } from "./lib/agent/paymentsAgent";
+import { createDeposit, checkDepositStatus, releaseDeposit, getEscrowsByTenant } from "./lib/agent/paymentsAgent";
 import { listEscrowsForTenant } from "./lib/services/escrowService";
 import { createLocusMCPPayment, checkLocusMCPPaymentStatus } from "./lib/agent/locusMCPAgent";
+import { getTrustProfile, getAllTrustProfiles, recordEvent as recordTrustEvent } from "./lib/agent/trustScoreAgent";
+import { getAllVerificationCases, getVerificationCase, addUpload } from "./lib/agent/moveInVerificationAgent";
+import { getPenaltyEvents, applyPenalty as applyBehaviorPenalty } from "./lib/agent/badBehaviorAgent";
 import type { CreateDepositParams, TenantProfile } from "../shared/types";
 
 export function registerRoutes(app: Express): Server {
@@ -372,6 +375,133 @@ export function registerRoutes(app: Express): Server {
     } catch (error: any) {
       console.error("Error checking MCP payment status:", error);
       res.status(500).json({ error: "Failed to check payment status" });
+    }
+  });
+
+  // trust score endpoints
+  app.get("/api/trust/:email", async (req, res) => {
+    try {
+      const email = req.params.email;
+      if (!email) {
+        return res.status(400).json({ error: "Missing email" });
+      }
+
+      const profile = getTrustProfile(email);
+      res.json(profile);
+    } catch (error: any) {
+      console.error("Error fetching trust profile:", error);
+      res.status(500).json({ error: "Failed to fetch trust profile" });
+    }
+  });
+
+  app.get("/api/trust", async (req, res) => {
+    try {
+      const profiles = getAllTrustProfiles();
+      res.json(profiles);
+    } catch (error: any) {
+      console.error("Error fetching trust profiles:", error);
+      res.status(500).json({ error: "Failed to fetch trust profiles" });
+    }
+  });
+
+  app.post("/api/trust/event", async (req, res) => {
+    try {
+      const { email, eventType, reason } = req.body;
+      if (!email || !eventType) {
+        return res.status(400).json({ error: "Missing email or eventType" });
+      }
+
+      const profile = recordTrustEvent(email, eventType, reason);
+      res.json(profile);
+    } catch (error: any) {
+      console.error("Error recording trust event:", error);
+      res.status(500).json({ error: "Failed to record trust event" });
+    }
+  });
+
+  // verification endpoints
+  app.get("/api/verification", async (req, res) => {
+    try {
+      const cases = getAllVerificationCases();
+      res.json(cases);
+    } catch (error: any) {
+      console.error("Error fetching verification cases:", error);
+      res.status(500).json({ error: "Failed to fetch verification cases" });
+    }
+  });
+
+  app.get("/api/verification/:escrowId", async (req, res) => {
+    try {
+      const escrowId = req.params.escrowId;
+      if (!escrowId) {
+        return res.status(400).json({ error: "Missing escrowId" });
+      }
+
+      const verificationCase = getVerificationCase(escrowId);
+      if (!verificationCase) {
+        return res.status(404).json({ error: "Verification case not found" });
+      }
+
+      res.json(verificationCase);
+    } catch (error: any) {
+      console.error("Error fetching verification case:", error);
+      res.status(500).json({ error: "Failed to fetch verification case" });
+    }
+  });
+
+  app.post("/api/verification/:escrowId/upload", async (req, res) => {
+    try {
+      const escrowId = req.params.escrowId;
+      const upload = req.body;
+
+      if (!escrowId || !upload) {
+        return res.status(400).json({ error: "Missing escrowId or upload data" });
+      }
+
+      addUpload(escrowId, upload);
+      const verificationCase = getVerificationCase(escrowId);
+
+      res.json(verificationCase);
+    } catch (error: any) {
+      console.error("Error adding upload:", error);
+      res.status(500).json({ error: "Failed to add upload" });
+    }
+  });
+
+  // penalty endpoints
+  app.get("/api/penalties", async (req, res) => {
+    try {
+      const email = req.query.email as string | undefined;
+      const penalties = getPenaltyEvents(email);
+      res.json(penalties);
+    } catch (error: any) {
+      console.error("Error fetching penalties:", error);
+      res.status(500).json({ error: "Failed to fetch penalties" });
+    }
+  });
+
+  app.post("/api/penalties", async (req, res) => {
+    try {
+      const { eventType, fromEmail, toEmail, reason, amount } = req.body;
+
+      if (!eventType || !fromEmail || !toEmail || !reason) {
+        return res.status(400).json({ 
+          error: "Missing required fields: eventType, fromEmail, toEmail, reason" 
+        });
+      }
+
+      const penalty = await applyBehaviorPenalty({
+        eventType,
+        fromEmail,
+        toEmail,
+        reason,
+        amount,
+      });
+
+      res.json(penalty);
+    } catch (error: any) {
+      console.error("Error applying penalty:", error);
+      res.status(500).json({ error: error.message || "Failed to apply penalty" });
     }
   });
 
