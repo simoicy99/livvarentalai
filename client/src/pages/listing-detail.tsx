@@ -63,10 +63,11 @@ export default function ListingDetail() {
         window.open(data.checkoutUrl, '_blank');
       }
     },
-    onError: (error) =>
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : "Failed to create deposit escrow";
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : String(error) || "Failed to create deposit escrow",
+        description: message,
         variant: "destructive",
       });
     },
