@@ -16,6 +16,7 @@ import { getAllVerificationCases, getVerificationCase, addUpload } from "./lib/a
 import { getPenaltyEvents, applyPenalty as applyBehaviorPenalty } from "./lib/agent/badBehaviorAgent";
 import type { CreateDepositParams, TenantProfile } from "../shared/types";
 import { clerkClient } from "./lib/clerk";
+import { getLocusTools } from "./lib/integrations/locusMCPClient";
 
 export function registerRoutes(app: Express): Server {
   app.get("/api/auth/user", async (req, res) => {
@@ -712,6 +713,16 @@ export function registerRoutes(app: Express): Server {
     } catch (error: any) {
       console.error("Error unsaving listing:", error);
       res.status(500).json({ error: "Failed to unsave listing" });
+    }
+  });
+
+  app.get("/api/debug/locus", async (req, res) => {
+    try {
+      const tools = await getLocusTools();
+      res.json({ ok: true, tools });
+    } catch (err: any) {
+      console.error("Error fetching Locus tools:", err);
+      res.status(500).json({ ok: false, error: err.message });
     }
   });
 
