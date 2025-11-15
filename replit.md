@@ -2,14 +2,22 @@
 
 ## Overview
 
-Livva is an agentic AI rental platform that automates long-term rental workflows for landlords and tenants. The platform uses intelligent agents to handle property listings, tenant-landlord matching, messaging coordination, and trust network verification. The system aims to make renting faster, fairer, and more human through AI automation while maintaining human-centric interactions.
+Livva is a rental listing aggregator with vibrant orange branding, featuring aggregated listings from Livva, Zillow, and Apartments.com. The platform currently focuses on San Francisco Bay Area listings and includes search functionality, clickable infinite-scroll feed, and Locus deposit integration. The long-term vision includes a 5-layer agent architecture handling posting/updates, search/matching, communication, verification/trust, and payments.
 
-**Core Capabilities:**
-- Multi-channel property listing management with AI agent automation
+**Current Features (MVP):**
+- Vibrant orange theme (#ff6b35 primary color)
+- Navbar with integrated search bar and profile menu
+- Infinite scroll feed of aggregated listings (Livva, Zillow, Apartments.com)
+- Full-text search across listings (title, description, city, address)
+- Clickable listing cards navigating to detailed view
+- Individual listing detail pages with full property information
+- Locus deposit integration for holding properties
+- All listings focused on San Francisco Bay Area locations
+
+**Future Vision:**
+- 5-layer agent architecture: listing management, search/match, communication, verification/trust, payments
 - AI-powered matchmaking between properties and tenants
-- Unified communication layer for inquiries and follow-ups
-- Trust network with verification scores and reputation data
-- Payment processing via Stripe integration
+- Trust network with verification scores
 - Role-based dashboards (landlord, tenant, admin)
 
 ## User Preferences
@@ -37,14 +45,16 @@ Preferred communication style: Simple, everyday language.
 
 **Styling System:**
 - Tailwind CSS with custom design tokens (New York style from shadcn/ui)
+- Vibrant orange primary color (#ff6b35 / HSL: 14 100% 60%)
 - CSS variables for theming with light/dark mode support
 - Custom color system with HSL values for dynamic theming
 - Design system inspired by Airbnb (cards), Linear (dashboards), and Stripe (payments)
 
 **Component Library:**
 - shadcn/ui components (Radix UI primitives)
-- Custom components for domain-specific features (ListingCard, TrustScoreBadge, AgentActivityIndicator)
+- Custom components: Navbar (search + profile), Hero, FeedGrid (infinite scroll), FeedCard (clickable listing cards)
 - Reusable UI patterns with consistent spacing primitives
+- All components include data-testid attributes for e2e testing
 
 **State Management:**
 - TanStack Query (React Query) for server state management
@@ -52,6 +62,8 @@ Preferred communication style: Simple, everyday language.
 - Form state via React Hook Form with Zod validation
 
 **Routing:** Wouter for lightweight client-side routing
+- `/` - Home page with navbar, hero, and infinite scroll feed
+- `/listing/:id` - Individual listing detail page with Locus deposit flow
 
 **Animation:** Framer Motion for component transitions and micro-interactions
 
@@ -69,42 +81,49 @@ Preferred communication style: Simple, everyday language.
 
 **API Design:**
 - RESTful endpoints under `/api` prefix
-- Session-based authentication via Replit Auth (OpenID Connect)
+- `/api/feed?q=<query>&page=<page>&pageSize=<size>` - Paginated listings with search support
+- `/api/listing/:id` - Individual listing retrieval
+- `/api/deposit` - Locus deposit session creation
 - Request/response logging middleware
 - Error handling with appropriate HTTP status codes
+- Future: Session-based authentication via Replit Auth
 
 **Key Services:**
-- `storage.ts`: Data access layer abstracting database operations
-- `aiService.ts`: OpenAI integration for AI-powered matchmaking
-- `replitAuth.ts`: Authentication setup with Passport.js strategy
-- Stripe integration for payment processing
+- `agentService.ts`: Listing aggregation from multiple sources (Livva, Zillow, Apartments.com) with search filtering
+- `locus.ts`: Locus deposit integration for property holds
+- Mock data services: `zillow.ts`, `apartmentsDotCom.ts` with SF Bay Area listings
+- Future: `aiService.ts` for AI-powered matchmaking, `replitAuth.ts` for authentication
 
 **Session Management:**
 - PostgreSQL-backed sessions via connect-pg-simple
 - 7-day session TTL
 - Secure cookies (httpOnly, secure flags)
 
-**Data Models:**
-- Users (with landlord/tenant/both roles)
-- Listings (properties with amenities, images, pricing)
+**Data Models (Current):**
+- Listings: Properties with title, description, price, address, city, state, bedrooms, bathrooms, sqft, images, source (internal/zillow/apartments), availability dates
+- Mock data: 10 SF Bay Area listings across Mission, Noe Valley, SoMa, Financial District, Sunset, Pacific Heights, Hayes Valley, Marina, Castro, North Beach
+
+**Future Data Models:**
+- Users (landlord/tenant/both roles)
 - Messages (conversation threads)
 - Matches (AI-scored tenant-listing pairs)
-- Trust Scores (verification and reputation data)
+- Trust Scores (verification data)
 - Tenant Preferences (search criteria)
-- Agent Activities (AI automation logs)
+- Agent Activities (automation logs)
 
-### AI Integration
+### Search & Filtering
 
-**Provider:** OpenAI via custom base URL configuration
+**Current Implementation:**
+- Full-text search across listing title, description, city, and address
+- Search query passed via `q` parameter to `/api/feed` endpoint
+- Agent service filters aggregated listings based on query
+- Real-time search results update in infinite scroll feed
 
-**Model:** GPT-5 (latest as of August 2025)
-
-**Use Cases:**
-- Matchmaking algorithm: Analyzes listing details against tenant preferences to generate match scores (0-100) with reasoning
-- Returns structured JSON responses for predictable parsing
-- Considers budget compatibility, location preferences, amenities, and property types
-
-**Pattern:** Server-side AI calls to protect API keys and enable rate limiting
+**Future AI Integration:**
+- OpenAI GPT-5 for intelligent matchmaking
+- AI-scored tenant-listing pairs (0-100 match scores)
+- Natural language search understanding
+- Personalized recommendations based on preferences
 
 ### Database Schema
 
@@ -154,9 +173,9 @@ Preferred communication style: Simple, everyday language.
 - Replit Deployment: Hosting environment with automatic provisioning
 
 **Payment Processing:**
-- Stripe API (v2023-10-16): Payment flows, customer management
-- @stripe/stripe-js: Client-side payment elements
-- @stripe/react-stripe-js: React bindings for Stripe
+- Locus Deposit Integration: Property holds and deposit management
+- Mock deposit sessions for testing deposit flows
+- Future: Stripe integration for full payment processing
 
 **AI Services:**
 - OpenAI API: GPT-5 model for matchmaking intelligence
