@@ -1,6 +1,7 @@
-import { Search, User, Menu } from "lucide-react";
+import { Search, User, Menu, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Link } from "wouter";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,6 +49,12 @@ export function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
           </div>
 
           <div className="flex items-center gap-2">
+            <Link href="/agents">
+              <Button variant="ghost" className="gap-2" data-testid="link-agents">
+                <Sparkles className="h-4 w-4" />
+                <span className="hidden sm:inline">Agents</span>
+              </Button>
+            </Link>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" data-testid="button-profile">

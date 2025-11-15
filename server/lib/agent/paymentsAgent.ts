@@ -61,7 +61,7 @@ export async function createDeposit(
 
   // stripe fallback
   if (!stripe) {
-    throw new Error("No payment method configured");
+    throw new Error("Payment methods not configured. Please set STRIPE_SECRET_KEY or configure Locus.");
   }
 
   const session = await stripe.checkout.sessions.create({

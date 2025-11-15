@@ -6,19 +6,26 @@ Livva is a rental listing aggregator with vibrant orange branding, featuring agg
 
 **Current Features (MVP):**
 - Vibrant orange theme (#ff6b35 primary color)
-- Navbar with integrated search bar and profile menu
+- Navbar with integrated search bar, agent demo link, and profile menu
 - Infinite scroll feed of aggregated listings (Livva, Zillow, Apartments.com)
 - Full-text search across listings (title, description, city, address)
 - Clickable listing cards navigating to detailed view
 - Individual listing detail pages with full property information
-- Locus deposit integration for holding properties
+- **Multi-agent architecture with 4 specialized agents:**
+  - **Match Agent**: Scores and ranks listings based on tenant preferences (budget, city, bedrooms)
+  - **Communication Agent**: Generates personalized messages for tenant-landlord communication
+  - **Payments Agent**: Creates secure deposit escrows via Locus (primary) or Stripe (fallback)
+  - **Listing Agent**: Aggregates listings from multiple sources with search filtering
+- Agent demo page showcasing full workflow (matching → messaging → deposits)
+- Agent console displaying real-time agent activity
+- Escrow panel for managing deposit status and releases
 - All listings focused on San Francisco Bay Area locations
 
 **Future Vision:**
-- 5-layer agent architecture: listing management, search/match, communication, verification/trust, payments
-- AI-powered matchmaking between properties and tenants
+- AI-powered agents using OpenAI for intelligent matchmaking and message generation
 - Trust network with verification scores
 - Role-based dashboards (landlord, tenant, admin)
+- Database persistence for escrows and messages
 
 ## User Preferences
 
@@ -52,7 +59,13 @@ Preferred communication style: Simple, everyday language.
 
 **Component Library:**
 - shadcn/ui components (Radix UI primitives)
-- Custom components: Navbar (search + profile), Hero, FeedGrid (infinite scroll), FeedCard (clickable listing cards)
+- Custom components: 
+  - Navbar (search + profile + agent demo link)
+  - Hero (agent-focused messaging)
+  - FeedGrid (infinite scroll)
+  - FeedCard (clickable listing cards)
+  - AgentConsole (real-time agent activity display)
+  - EscrowPanel (escrow management interface)
 - Reusable UI patterns with consistent spacing primitives
 - All components include data-testid attributes for e2e testing
 
@@ -64,6 +77,7 @@ Preferred communication style: Simple, everyday language.
 **Routing:** Wouter for lightweight client-side routing
 - `/` - Home page with navbar, hero, and infinite scroll feed
 - `/listing/:id` - Individual listing detail page with Locus deposit flow
+- `/agents` - Agent demo page showcasing multi-agent workflow
 
 **Animation:** Framer Motion for component transitions and micro-interactions
 
@@ -81,18 +95,32 @@ Preferred communication style: Simple, everyday language.
 
 **API Design:**
 - RESTful endpoints under `/api` prefix
-- `/api/feed?q=<query>&page=<page>&pageSize=<size>` - Paginated listings with search support
-- `/api/listing/:id` - Individual listing retrieval
-- `/api/deposit` - Locus deposit session creation
+- **Listing endpoints:**
+  - `/api/feed?q=<query>&page=<page>&pageSize=<size>` - Paginated listings with search support
+  - `/api/listing/:id` - Individual listing retrieval
+- **Agent endpoints:**
+  - `POST /api/match` - Match Agent: Scores listings for tenant profile
+  - `POST /api/messages` - Communication Agent: Generates personalized messages
+  - `POST /api/escrow/create` - Payments Agent: Creates deposit escrow via Locus/Stripe
+  - `GET /api/escrow/status?id=<id>` - Check escrow status
+  - `POST /api/escrow/release` - Release escrow funds
+  - `GET /api/escrow?tenantEmail=<email>` - List tenant's escrows
+- `/api/deposit` - Legacy Locus deposit endpoint (backwards compatibility)
 - Request/response logging middleware
 - Error handling with appropriate HTTP status codes
 - Future: Session-based authentication via Replit Auth
 
 **Key Services:**
-- `agentService.ts`: Listing aggregation from multiple sources (Livva, Zillow, Apartments.com) with search filtering
-- `locus.ts`: Locus deposit integration for property holds
-- Mock data services: `zillow.ts`, `apartmentsDotCom.ts` with SF Bay Area listings
-- Future: `aiService.ts` for AI-powered matchmaking, `replitAuth.ts` for authentication
+- **Agent Services:**
+  - `agent/agentService.ts` (Listing Agent): Listing aggregation from multiple sources with search filtering
+  - `agent/matchAgent.ts` (Match Agent): Scores and ranks listings based on tenant preferences
+  - `agent/communicationAgent.ts` (Communication Agent): Generates personalized messages
+  - `agent/paymentsAgent.ts` (Payments Agent): Manages deposits via Locus (primary) or Stripe (fallback)
+- **Supporting Services:**
+  - `services/escrowService.ts`: In-memory escrow record storage (will be database in production)
+  - `integrations/locus.ts`: Locus deposit integration
+  - `integrations/zillow.ts`, `integrations/apartmentsDotCom.ts`: Mock data services with SF Bay Area listings
+- Future: `aiService.ts` for AI-powered matchmaking using OpenAI, `replitAuth.ts` for authentication
 
 **Session Management:**
 - PostgreSQL-backed sessions via connect-pg-simple
@@ -100,15 +128,18 @@ Preferred communication style: Simple, everyday language.
 - Secure cookies (httpOnly, secure flags)
 
 **Data Models (Current):**
-- Listings: Properties with title, description, price, address, city, state, bedrooms, bathrooms, sqft, images, source (internal/zillow/apartments), availability dates
+- **Listings**: Properties with title, description, price, address, city, state, bedrooms, bathrooms, sqft, images, source (internal/zillow/apartments), availability dates
+- **TenantProfile**: Tenant preferences with name, email, budget range, preferred cities, bedrooms, move-in date
+- **EscrowRecord**: Deposit escrows with listing ID, tenant email, amount, currency, status (pending/funded/released/refunded/failed), channel (locus/stripe), transaction IDs
+- **ConversationMessage**: Messages with role (tenant/landlord/agent), text, timestamp
+- **MatchResult**: Scored listing matches with score (0-100), reasons array
 - Mock data: 10 SF Bay Area listings across Mission, Noe Valley, SoMa, Financial District, Sunset, Pacific Heights, Hayes Valley, Marina, Castro, North Beach
 
 **Future Data Models:**
-- Users (landlord/tenant/both roles)
-- Messages (conversation threads)
-- Matches (AI-scored tenant-listing pairs)
+- Users (landlord/tenant/both roles) - persisted to database
+- Messages (conversation threads) - persisted to database
+- Matches (AI-scored tenant-listing pairs) - persisted to database
 - Trust Scores (verification data)
-- Tenant Preferences (search criteria)
 - Agent Activities (automation logs)
 
 ### Search & Filtering
