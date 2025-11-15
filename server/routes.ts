@@ -4,6 +4,8 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { generateMatchScore } from "./aiService";
 import Stripe from "stripe";
+import multer from "multer";
+import { Client } from "@replit/object-storage";
 import {
   insertListingSchema,
   insertMessageSchema,
@@ -15,12 +17,55 @@ if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
 }
 
+if (!process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID) {
+  throw new Error('Missing required environment variable: DEFAULT_OBJECT_STORAGE_BUCKET_ID. Please set up object storage.');
+}
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2023-10-16",
+  apiVersion: "2025-10-29.clover",
 });
+
+const objectStorageClient = new Client({
+  bucketId: process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID,
+});
+const uploadMiddleware = multer({ storage: multer.memoryStorage() });
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
+
+  app.post('/api/upload-images', isAuthenticated, uploadMiddleware.array('images', 10), async (req: any, res) => {
+    try {
+      if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ message: "No files uploaded" });
+      }
+
+      const uploadedUrls: string[] = [];
+      const files = req.files as Express.Multer.File[];
+
+      for (const file of files) {
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(7);
+        const fileExt = file.originalname.split('.').pop() || 'jpg';
+        const filename = `listing-${timestamp}-${randomId}.${fileExt}`;
+        const objectPath = `public/${filename}`;
+
+        const uploadResult = await objectStorageClient.uploadFromBytes(objectPath, file.buffer);
+        
+        if (!uploadResult.ok) {
+          console.error('Upload failed for file:', filename, uploadResult.error);
+          continue;
+        }
+        
+        const publicUrl = `/${process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID}/${objectPath}`;
+        uploadedUrls.push(publicUrl);
+      }
+
+      res.json({ urls: uploadedUrls });
+    } catch (error: any) {
+      console.error("Error uploading images:", error);
+      res.status(500).json({ message: "Failed to upload images: " + error.message });
+    }
+  });
 
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {

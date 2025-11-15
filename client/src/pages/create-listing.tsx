@@ -25,9 +25,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Plus, X } from "lucide-react";
+import { ArrowLeft, Plus, X, Upload, Image as ImageIcon } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
+import { uploadMultipleImages } from "@/lib/uploadImage";
 
 export default function CreateListing() {
   const { user } = useAuth();
@@ -35,6 +36,8 @@ export default function CreateListing() {
   const [, setLocation] = useLocation();
   const [amenities, setAmenities] = useState<string[]>([]);
   const [currentAmenity, setCurrentAmenity] = useState("");
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   const form = useForm<InsertListing>({
     resolver: zodResolver(insertListingSchema),
@@ -81,11 +84,38 @@ export default function CreateListing() {
     },
   });
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    
+    setIsUploading(true);
+    try {
+      const urls = await uploadMultipleImages(e.target.files);
+      setUploadedImages([...uploadedImages, ...urls]);
+      toast({
+        title: "Images uploaded",
+        description: `${urls.length} image(s) uploaded successfully`,
+      });
+    } catch (error) {
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload images. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const removeImage = (imageUrl: string) => {
+    setUploadedImages(uploadedImages.filter((url) => url !== imageUrl));
+  };
+
   const onSubmit = (data: InsertListing) => {
     createListingMutation.mutate({
       ...data,
       landlordId: user?.id || "",
       amenities,
+      images: uploadedImages,
     });
   };
 
@@ -377,6 +407,76 @@ export default function CreateListing() {
             </CardContent>
           </Card>
 
+          <Card>
+            <CardHeader>
+              <CardTitle>Photos</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <FormLabel>Upload Property Images</FormLabel>
+                <div className="mt-2">
+                  <label htmlFor="image-upload" className="cursor-pointer">
+                    <div className="border-2 border-dashed rounded-md p-8 hover-elevate active-elevate-2 flex flex-col items-center justify-center gap-3">
+                      {isUploading ? (
+                        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+                      ) : (
+                        <>
+                          <Upload className="h-10 w-10 text-muted-foreground" />
+                          <div className="text-center">
+                            <p className="font-medium">Click to upload images</p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              PNG, JPG up to 10MB each
+                            </p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </label>
+                  <input
+                    id="image-upload"
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageUpload}
+                    disabled={isUploading}
+                    data-testid="input-images"
+                  />
+                </div>
+              </div>
+
+              {uploadedImages.length > 0 && (
+                <div>
+                  <FormLabel className="mb-2 block">Uploaded Images ({uploadedImages.length})</FormLabel>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {uploadedImages.map((imageUrl, index) => (
+                      <div key={imageUrl} className="relative group">
+                        <img
+                          src={imageUrl}
+                          alt={`Property ${index + 1}`}
+                          className="w-full h-32 object-cover rounded-md border"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(imageUrl)}
+                          className="absolute top-2 right-2 bg-destructive text-destructive-foreground rounded-full p-1 hover-elevate opacity-0 group-hover:opacity-100 transition-opacity"
+                          data-testid={`button-remove-image-${index}`}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                        {index === 0 && (
+                          <Badge className="absolute bottom-2 left-2" variant="secondary">
+                            Cover
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <div className="flex gap-4 justify-end">
             <Link href="/listings">
               <Button type="button" variant="outline" data-testid="button-cancel">
@@ -385,7 +485,7 @@ export default function CreateListing() {
             </Link>
             <Button
               type="submit"
-              disabled={createListingMutation.isPending}
+              disabled={createListingMutation.isPending || isUploading}
               data-testid="button-submit"
             >
               {createListingMutation.isPending ? "Creating..." : "Create Listing"}
