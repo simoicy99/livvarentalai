@@ -15,17 +15,44 @@ const sfStreets = [
   "Judah St", "Irving St", "Taraval St", "Noriega St", "Ortega St"
 ];
 
-const propertyTypes = [
-  "Victorian Flat", "Modern Loft", "Garden Apartment", "Penthouse", "Studio",
-  "Townhouse", "Condo", "Duplex", "Family Home", "High-Rise Apartment"
+const roomTypes = [
+  "Private bedroom in shared 2BR apartment",
+  "Private bedroom in shared 3BR apartment", 
+  "Private bedroom in shared Victorian flat",
+  "Private bedroom in shared house",
+  "Private bedroom in shared townhouse",
+  "Master bedroom in shared 2BR condo",
+  "Furnished private room in shared apartment",
+  "Large bedroom in shared Victorian",
+  "Sunny room in shared flat",
+  "Private room with private bathroom"
 ];
 
-const amenities = [
-  "hardwood floors", "stainless steel appliances", "granite countertops",
-  "in-unit washer/dryer", "central AC", "balcony", "rooftop deck access",
-  "garage parking", "bike storage", "gym access", "concierge service",
-  "pet-friendly", "recently renovated", "natural light", "bay views",
-  "city views", "walk-in closets", "dishwasher", "fireplace"
+const roomFeatures = [
+  "furnished", "unfurnished", "large closet", "plenty of natural light",
+  "hardwood floors", "recently painted", "street views", "quiet",
+  "spacious", "cozy", "bright"
+];
+
+const sharedAmenities = [
+  "shared kitchen", "shared living room", "in-unit washer/dryer",
+  "dishwasher", "central heating", "high-speed WiFi included",
+  "utilities included", "cable included", "shared backyard",
+  "shared balcony", "garage parking available", "bike storage",
+  "pet-friendly building", "near public transit", "walking distance to BART",
+  "close to cafes and restaurants", "street parking"
+];
+
+const roommateInfo = [
+  "2 current roommates (working professionals)",
+  "1 roommate (grad student)",
+  "2 roommates (tech professionals)",
+  "friendly household of 3",
+  "quiet professional household",
+  "LGBTQ+ friendly household",
+  "420-friendly household",
+  "no pets currently",
+  "cat-friendly household"
 ];
 
 const unsplashImages = [
@@ -50,58 +77,76 @@ function randomItem<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function randomPrice(bedrooms: number): number {
-  const basePrices = [2400, 2800, 3200, 3800, 4500, 5200, 6000, 7500];
-  const bedroomMultiplier = bedrooms === 0 ? 0.8 : bedrooms * 0.4;
-  const basePrice = randomItem(basePrices);
-  return Math.round(basePrice * (1 + bedroomMultiplier));
+function randomRoomPrice(neighborhood: string): number {
+  const priceRanges: Record<string, [number, number]> = {
+    "Pacific Heights": [1800, 2500],
+    "Marina District": [1700, 2400],
+    "Russian Hill": [1700, 2400],
+    "North Beach": [1600, 2200],
+    "Financial District": [1800, 2500],
+    "SoMa": [1700, 2300],
+    "Mission District": [1400, 2000],
+    "Castro": [1500, 2100],
+    "Hayes Valley": [1500, 2100],
+    "Noe Valley": [1600, 2200],
+    "Potrero Hill": [1500, 2100],
+    "Dogpatch": [1400, 2000],
+    "Bernal Heights": [1300, 1900],
+    "Cole Valley": [1500, 2100],
+    "Haight-Ashbury": [1300, 1900],
+    "Lower Haight": [1300, 1800],
+    "Inner Richmond": [1300, 1900],
+    "Outer Richmond": [1200, 1700],
+    "Inner Sunset": [1300, 1900],
+    "Sunset District": [1200, 1700],
+    "Outer Sunset": [1100, 1600],
+    "Glen Park": [1300, 1800],
+    "Excelsior": [1100, 1500],
+    "Bayview": [1000, 1400],
+    "Visitacion Valley": [1000, 1400],
+  };
+
+  const [min, max] = priceRanges[neighborhood] || [1200, 1800];
+  return Math.round((min + Math.random() * (max - min)) / 50) * 50;
 }
 
-function generateDescription(bedrooms: number, bathrooms: number, neighborhood: string): string {
-  const features = [
-    randomItem(amenities),
-    randomItem(amenities),
-    randomItem(amenities),
-  ];
+function generateRoomDescription(neighborhood: string, roomType: string): string {
+  const feature1 = randomItem(roomFeatures);
+  const feature2 = randomItem(roomFeatures);
+  const amenity1 = randomItem(sharedAmenities);
+  const amenity2 = randomItem(sharedAmenities);
+  const amenity3 = randomItem(sharedAmenities);
+  const roommates = randomItem(roommateInfo);
   
-  const intro = bedrooms === 0
-    ? "Efficient studio layout with"
-    : `Spacious ${bedrooms}BR / ${bathrooms}BA with`;
-  
-  return `${intro} ${features[0]}, ${features[1]}, and ${features[2]}. Located in vibrant ${neighborhood}. Close to transit, dining, and parks.`;
+  return `${roomType} available in ${neighborhood}. Room is ${feature1} and ${feature2}. Apartment features ${amenity1}, ${amenity2}, and ${amenity3}. ${roommates}. Move-in ready!`;
 }
 
 export function generateMockListings(count: number, source: "internal" | "zillow" | "apartments"): Listing[] {
   const listings: Listing[] = [];
   
   for (let i = 0; i < count; i++) {
-    const bedrooms = Math.floor(Math.random() * 4);
-    const bathrooms = bedrooms === 0 ? 1 : Math.ceil(bedrooms / 2) + Math.floor(Math.random() * 2);
-    const sqft = bedrooms === 0 
-      ? 400 + Math.floor(Math.random() * 300)
-      : 700 + (bedrooms * 400) + Math.floor(Math.random() * 400);
-    
     const neighborhood = randomItem(sfNeighborhoods);
     const street = randomItem(sfStreets);
-    const propertyType = randomItem(propertyTypes);
-    const price = randomPrice(bedrooms);
+    const roomType = randomItem(roomTypes);
+    const price = randomRoomPrice(neighborhood);
     const daysAvailable = Math.floor(Math.random() * 45) + 1;
     const daysAgo = Math.floor(Math.random() * 14);
+    
+    const hasPrivateBath = roomType.includes("private bathroom");
+    const sqft = 120 + Math.floor(Math.random() * 80);
 
     listings.push({
       id: `${source}_${i + 1}`,
-      title: bedrooms === 0
-        ? `${neighborhood} ${propertyType}`
-        : `${bedrooms}BR ${propertyType} in ${neighborhood}`,
-      description: generateDescription(bedrooms, bathrooms, neighborhood),
+      title: `Private Room in ${neighborhood}`,
+      description: generateRoomDescription(neighborhood, roomType),
       price,
       address: `${Math.floor(Math.random() * 3000) + 100} ${street}`,
       city: "San Francisco",
       state: "CA",
       imageUrl: `https://images.unsplash.com/${randomItem(unsplashImages)}?w=800`,
       source,
-      bedrooms,
-      bathrooms,
+      bedrooms: 1,
+      bathrooms: hasPrivateBath ? 1 : 0.5,
       sqft,
       availableFrom: new Date(Date.now() + daysAvailable * 24 * 60 * 60 * 1000).toISOString(),
       createdAt: new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000).toISOString(),

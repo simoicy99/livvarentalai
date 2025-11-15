@@ -22,24 +22,30 @@ export async function getZillowListings(): Promise<Listing[]> {
     }
 
     console.log(`Fetched ${zillowData.length} real Zillow listings`);
-    return zillowData.map((listing, index) => ({
-      id: `zillow_real_${listing.zpid}`,
-      title: listing.bedrooms > 0 
-        ? `${listing.bedrooms}BR${listing.bathrooms > 0 ? ` / ${listing.bathrooms}BA` : ''} in ${listing.city}`
-        : `Studio in ${listing.city}`,
-      description: `Available for rent at ${listing.address}. ${listing.livingArea > 0 ? listing.livingArea + ' sqft with' : ''} ${listing.bedrooms} bedroom${listing.bedrooms !== 1 ? 's' : ''} and ${listing.bathrooms} bathroom${listing.bathrooms !== 1 ? 's' : ''}.`,
-      price: listing.price,
-      address: listing.address,
-      city: listing.city,
-      state: listing.state,
-      imageUrl: listing.imgSrc || "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800",
-      source: "zillow",
-      bedrooms: listing.bedrooms,
-      bathrooms: listing.bathrooms,
-      sqft: listing.livingArea,
-      availableFrom: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      createdAt: new Date().toISOString(),
-    }));
+    return zillowData.map((listing, index) => {
+      const neighborhood = listing.city === "San Francisco" 
+        ? listing.address.split(',')[0].split(' ').slice(-2).join(' ')
+        : listing.city;
+      
+      const roomPrice = Math.round(listing.price / (listing.bedrooms || 1) * 0.45);
+      
+      return {
+        id: `zillow_real_${listing.zpid}`,
+        title: `Private Room in ${neighborhood}`,
+        description: `Private bedroom in shared ${listing.bedrooms}BR apartment. ${listing.livingArea > 0 ? `Total unit is ${listing.livingArea} sqft.` : ''} Features include shared kitchen, living room, and ${listing.bathrooms} bathroom${listing.bathrooms !== 1 ? 's' : ''}. Great location near transit and amenities.`,
+        price: roomPrice,
+        address: listing.address,
+        city: listing.city,
+        state: listing.state,
+        imageUrl: listing.imgSrc || "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800",
+        source: "zillow",
+        bedrooms: 1,
+        bathrooms: listing.bathrooms > 1 ? 0.5 : 1,
+        sqft: Math.round((listing.livingArea || 800) / (listing.bedrooms || 2)),
+        availableFrom: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        createdAt: new Date().toISOString(),
+      };
+    });
   } catch (error) {
     console.error("Error getting real Zillow listings, using fallback:", error);
     return getFallbackListings();
