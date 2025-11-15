@@ -9,8 +9,8 @@ export function getEnv(name: string, required = true): string | undefined {
 export function getLocusConfig() {
   return {
     mcpUrl: getEnv('LOCUS_MCP_URL', false) || 'https://mcp.paywithlocus.com/mcp',
-    clientId: getEnv('LOCUS_CLIENT_ID'),
-    clientSecret: getEnv('LOCUS_CLIENT_SECRET'),
+    clientId: getEnv('LOCUS_CLIENT_ID', false),
+    clientSecret: getEnv('LOCUS_CLIENT_SECRET', false),
   };
 }
 

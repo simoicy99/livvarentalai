@@ -62,7 +62,7 @@ export async function createLocusMCPPayment(
     }
 
     const client = await getLocusMCPClient();
-    const tools = await client.getTools();
+    const tools = mcpTools.length > 0 ? mcpTools : await client.getTools();
 
     const llm = new ChatAnthropic({
       apiKey: getAnthropicApiKey(),
@@ -121,7 +121,7 @@ export async function checkLocusMCPPaymentStatus(
     }
 
     const client = await getLocusMCPClient();
-    const tools = await client.getTools();
+    const tools = mcpTools.length > 0 ? mcpTools : await client.getTools();
 
     const llm = new ChatAnthropic({
       apiKey: getAnthropicApiKey(),
