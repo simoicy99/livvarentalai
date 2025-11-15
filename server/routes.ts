@@ -6,6 +6,7 @@ import { matchListingsToTenant } from "./lib/agent/matchAgent";
 import { generateInitialMessage, generateFollowUpMessage } from "./lib/agent/communicationAgent";
 import { createDeposit, checkDepositStatus, releaseDeposit } from "./lib/agent/paymentsAgent";
 import { listEscrowsForTenant } from "./lib/services/escrowService";
+import { createLocusMCPPayment, checkLocusMCPPaymentStatus } from "./lib/agent/locusMCPAgent";
 import type { CreateDepositParams, TenantProfile } from "../shared/types";
 
 export function registerRoutes(app: Express): Server {
@@ -293,6 +294,45 @@ export function registerRoutes(app: Express): Server {
     } catch (error: any) {
       console.error("Error fetching community posts:", error);
       res.status(500).json({ error: "Failed to fetch posts" });
+    }
+  });
+
+  // locus mcp payment endpoint
+  app.post("/api/mcp/payment", async (req, res) => {
+    try {
+      const { amount, currency, description, recipientEmail, metadata } = req.body;
+
+      if (!amount || !currency || !recipientEmail) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const result = await createLocusMCPPayment({
+        amount,
+        currency,
+        description,
+        recipientEmail,
+        metadata,
+      });
+
+      if (!result.success) {
+        return res.status(500).json({ error: result.error });
+      }
+
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error creating MCP payment:", error);
+      res.status(500).json({ error: "Failed to create payment" });
+    }
+  });
+
+  app.get("/api/mcp/payment/:id/status", async (req, res) => {
+    try {
+      const paymentId = req.params.id;
+      const result = await checkLocusMCPPaymentStatus(paymentId);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error checking MCP payment status:", error);
+      res.status(500).json({ error: "Failed to check payment status" });
     }
   });
 

@@ -1,8 +1,8 @@
-import { Search, Sparkles } from "lucide-react";
+import { Search, Sparkles, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link } from "wouter";
-import { UserButton } from "@/components/UserButton";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface NavbarProps {
   onSearch?: (query: string) => void;
@@ -48,7 +48,15 @@ export function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
                 <span className="hidden sm:inline">Agents</span>
               </Button>
             </Link>
-            <UserButton />
+            <Link href="/portal">
+              <Button variant="ghost" size="icon" data-testid="button-profile">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="bg-primary text-primary-foreground">
+                    <User className="h-4 w-4" />
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
