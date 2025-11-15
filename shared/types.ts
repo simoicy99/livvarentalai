@@ -17,13 +17,6 @@ export interface Listing {
   createdAt?: string;
 }
 
-export interface GetFeedOptions {
-  page: number;
-  pageSize: number;
-  cityFilter?: string;
-  maxPrice?: number;
-}
-
 export interface FeedResponse {
   items: Listing[];
   page: number;

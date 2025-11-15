@@ -1,6 +1,13 @@
-import type { Listing, GetFeedOptions, FeedResponse } from "../../../shared/types";
+import type { Listing, FeedResponse } from "../../../shared/types";
 import { getZillowListings } from "../integrations/zillow";
 import { getApartmentsListings } from "../integrations/apartmentsDotCom";
+
+export interface GetFeedOptions {
+  page: number;
+  pageSize: number;
+  cityFilter?: string;
+  maxPrice?: number;
+}
 
 function getInternalListings(): Listing[] {
   return [
