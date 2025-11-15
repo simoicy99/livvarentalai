@@ -1,9 +1,5 @@
-export function getLocusApiKey(): string {
-  const key = process.env.LOCUS_API_KEY;
-  if (!key) {
-    throw new Error("LOCUS_API_KEY environment variable is required");
-  }
-  return key;
+export function getLocusApiKey(): string | undefined {
+  return process.env.LOCUS_API_KEY;
 }
 
 export function getZillowApiKey(): string | undefined {
