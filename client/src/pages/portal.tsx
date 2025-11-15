@@ -235,6 +235,69 @@ const demoEscrows: EscrowRecord[] = [
   }
 ];
 
+const demoVerifications = [
+  {
+    id: "verify-1",
+    listingId: "internal_3",
+    listingTitle: "Private Room in Mission District",
+    status: "pending_landlord",
+    createdAt: "2024-11-14T15:30:00Z",
+    moveInDate: "2024-12-01",
+    checklist: [
+      { item: "Property condition photos submitted", completed: true },
+      { item: "Move-in checklist signed by tenant", completed: true },
+      { item: "Key handoff scheduled", completed: false },
+      { item: "Landlord final approval", completed: false }
+    ],
+    notes: "Awaiting landlord's final approval to release escrow"
+  },
+  {
+    id: "verify-2",
+    listingId: "zillow_5",
+    listingTitle: "Private Room in Noe Valley",
+    status: "completed",
+    createdAt: "2024-11-10T09:00:00Z",
+    moveInDate: "2024-11-15",
+    completedAt: "2024-11-15T14:00:00Z",
+    checklist: [
+      { item: "Property condition photos submitted", completed: true },
+      { item: "Move-in checklist signed by tenant", completed: true },
+      { item: "Key handoff completed", completed: true },
+      { item: "Landlord final approval", completed: true }
+    ],
+    notes: "Successfully verified. Escrow released to landlord."
+  }
+];
+
+const demoPenalties = [
+  {
+    id: "penalty-1",
+    listingId: "internal_7",
+    listingTitle: "Private Room in Sunset District",
+    type: "property_damage",
+    description: "Minor wall damage from furniture - under dispute",
+    amount: 150,
+    currency: "usd",
+    status: "disputed",
+    createdAt: "2024-10-20T10:00:00Z",
+    disputeReason: "Damage was pre-existing, included in move-in photos",
+    resolution: null
+  },
+  {
+    id: "penalty-2",
+    listingId: "apartments_8",
+    listingTitle: "Private Room in Hayes Valley",
+    type: "late_payment",
+    description: "Late rent payment - resolved with grace period",
+    amount: 50,
+    currency: "usd",
+    status: "resolved",
+    createdAt: "2024-09-05T08:00:00Z",
+    resolvedAt: "2024-09-06T16:00:00Z",
+    resolution: "Waived due to bank processing delay"
+  }
+];
+
 const menuItems = [
   { id: "saved", icon: Heart, label: "Saved Listings", href: "/portal?tab=saved" },
   { id: "matches", icon: Building2, label: "AI Matches", href: "/portal?tab=matches" },
@@ -242,7 +305,8 @@ const menuItems = [
   { id: "finances", icon: DollarSign, label: "Finances", href: "/portal?tab=finances" },
   { id: "trust", icon: Shield, label: "Trust Score", href: "/portal?tab=trust" },
   { id: "verification", icon: FileCheck, label: "Move-In Verify", href: "/portal?tab=verification" },
-  { id: "penalties", icon: AlertTriangle, label: "Penalties", href: "/portal?tab=penalties" }
+  { id: "penalties", icon: AlertTriangle, label: "Penalties", href: "/portal?tab=penalties" },
+  { id: "locus", icon: DollarSign, label: "Locus Agent", href: "/portal?tab=locus" }
 ];
 
 export default function Portal() {
@@ -251,6 +315,9 @@ export default function Portal() {
   const [userEmail] = useState("demo_user@livva.com");
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [messageText, setMessageText] = useState("");
+  const [locusPrompt, setLocusPrompt] = useState("");
+  const [locusResponse, setLocusResponse] = useState("");
+  const [locusLoading, setLocusLoading] = useState(false);
   const { toast } = useToast();
 
   const urlParams = new URLSearchParams(searchString);
@@ -293,6 +360,49 @@ export default function Portal() {
   const savedListings = fetchedSaved.length > 0 ? fetchedSaved : demoSavedListings;
   const escrows = fetchedEscrows.length > 0 ? fetchedEscrows : demoEscrows;
   const matches = fetchedMatches.length > 0 ? fetchedMatches : demoMatches;
+
+  const handleLocusPrompt = async () => {
+    if (!locusPrompt.trim()) {
+      toast({
+        title: "Empty prompt",
+        description: "Please enter a prompt for the Locus agent",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLocusLoading(true);
+    setLocusResponse("");
+
+    try {
+      const response = await fetch("/api/locus/prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: locusPrompt }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to execute Locus agent");
+      }
+
+      const data = await response.json();
+      setLocusResponse(data.response || "Agent executed successfully");
+      toast({
+        title: "Success",
+        description: "Locus agent executed your request",
+      });
+    } catch (error) {
+      console.error("Locus agent error:", error);
+      setLocusResponse("Error: " + (error instanceof Error ? error.message : "Unknown error"));
+      toast({
+        title: "Error",
+        description: "Failed to execute Locus agent",
+        variant: "destructive",
+      });
+    } finally {
+      setLocusLoading(false);
+    }
+  };
 
   const sidebarStyle = {
     "--sidebar-width": "16rem",
@@ -809,20 +919,97 @@ export default function Portal() {
               <p className="text-muted-foreground">Document verification for deposit releases</p>
             </div>
             
-            <Card>
-              <CardContent className="p-12 text-center">
-                <FileCheck className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-lg font-medium mb-2">No verification cases yet</p>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Verification cases are created when landlords approve your deposit
-                </p>
-                <Link href="/agents">
-                  <Button data-testid="button-try-agents-verification">
-                    Try Agent Demo
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
+            {demoVerifications.length === 0 ? (
+              <Card>
+                <CardContent className="p-12 text-center">
+                  <FileCheck className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-lg font-medium mb-2">No verification cases yet</p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Verification cases are created when landlords approve your deposit
+                  </p>
+                  <Link href="/agents">
+                    <Button data-testid="button-try-agents-verification">
+                      Try Agent Demo
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4">
+                {demoVerifications.map((verification) => (
+                  <Card key={verification.id} className="hover-elevate" data-testid={`card-verification-${verification.id}`}>
+                    <CardHeader>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge
+                              variant={
+                                verification.status === "completed" ? "default" :
+                                verification.status === "pending_landlord" ? "outline" :
+                                "secondary"
+                              }
+                              data-testid={`badge-verification-status-${verification.id}`}
+                            >
+                              {verification.status === "completed" && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                              {verification.status === "pending_landlord" && <Clock className="h-3 w-3 mr-1" />}
+                              {verification.status.replace("_", " ").toUpperCase()}
+                            </Badge>
+                            <CardTitle className="text-base">{verification.listingTitle}</CardTitle>
+                          </div>
+                          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              Move-in: {new Date(verification.moveInDate).toLocaleDateString()}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Created {new Date(verification.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                        <Link href={`/listing/${verification.listingId}`}>
+                          <Button variant="outline" size="sm" data-testid={`button-view-listing-${verification.id}`}>
+                            View Listing
+                          </Button>
+                        </Link>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-sm font-medium mb-2">Verification Checklist:</p>
+                          <div className="space-y-2">
+                            {verification.checklist.map((item, idx) => (
+                              <div key={idx} className="flex items-center gap-2" data-testid={`checklist-item-${verification.id}-${idx}`}>
+                                {item.completed ? (
+                                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                ) : (
+                                  <Clock className="h-4 w-4 text-muted-foreground" />
+                                )}
+                                <span className={`text-sm ${item.completed ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                  {item.item}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        {verification.notes && (
+                          <div className="p-3 bg-muted rounded-lg">
+                            <p className="text-sm text-muted-foreground italic">{verification.notes}</p>
+                          </div>
+                        )}
+                        {verification.status === "completed" && verification.completedAt && (
+                          <div className="flex items-center gap-2 text-sm text-green-600">
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span>Completed on {new Date(verification.completedAt).toLocaleDateString()}</span>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         );
 
@@ -830,16 +1017,267 @@ export default function Portal() {
         return (
           <div className="space-y-4">
             <div>
-              <h2 className="text-2xl font-bold mb-2">Penalties</h2>
-              <p className="text-muted-foreground">Track any penalty cases or disputes</p>
+              <h2 className="text-2xl font-bold mb-2">Penalties & Disputes</h2>
+              <p className="text-muted-foreground">Track penalty cases, disputes, and resolutions</p>
             </div>
             
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total Cases</p>
+                      <p className="text-2xl font-bold" data-testid="text-total-penalties">
+                        {demoPenalties.length}
+                      </p>
+                    </div>
+                    <AlertTriangle className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Active Disputes</p>
+                      <p className="text-2xl font-bold" data-testid="text-active-disputes">
+                        {demoPenalties.filter(p => p.status === 'disputed').length}
+                      </p>
+                    </div>
+                    <AlertCircle className="h-8 w-8 text-amber-500" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Resolved</p>
+                      <p className="text-2xl font-bold" data-testid="text-resolved-penalties">
+                        {demoPenalties.filter(p => p.status === 'resolved').length}
+                      </p>
+                    </div>
+                    <CheckCircle2 className="h-8 w-8 text-green-600" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            
+            {demoPenalties.length === 0 ? (
+              <Card>
+                <CardContent className="p-12 text-center">
+                  <CheckCircle2 className="h-16 w-16 mx-auto mb-4 text-green-600" />
+                  <p className="text-lg font-medium mb-2">No penalties</p>
+                  <p className="text-sm text-muted-foreground">
+                    You have a clean record with no active penalty cases
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4">
+                {demoPenalties.map((penalty) => (
+                  <Card key={penalty.id} className="hover-elevate" data-testid={`card-penalty-${penalty.id}`}>
+                    <CardHeader>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge
+                              variant={
+                                penalty.status === "resolved" ? "default" :
+                                penalty.status === "disputed" ? "outline" :
+                                "secondary"
+                              }
+                              data-testid={`badge-penalty-status-${penalty.id}`}
+                            >
+                              {penalty.status === "resolved" && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                              {penalty.status === "disputed" && <AlertCircle className="h-3 w-3 mr-1" />}
+                              {penalty.status.toUpperCase()}
+                            </Badge>
+                            <Badge variant="secondary">
+                              {penalty.type.replace("_", " ").toUpperCase()}
+                            </Badge>
+                            <CardTitle className="text-base">{penalty.listingTitle}</CardTitle>
+                          </div>
+                          <div className="flex items-center gap-3 text-sm text-muted-foreground mb-2">
+                            <span className="flex items-center gap-1">
+                              <DollarSign className="h-3 w-3" />
+                              ${penalty.amount} {penalty.currency.toUpperCase()}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Created {new Date(penalty.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <p className="text-sm text-muted-foreground">{penalty.description}</p>
+                        </div>
+                        <Link href={`/listing/${penalty.listingId}`}>
+                          <Button variant="outline" size="sm" data-testid={`button-view-listing-${penalty.id}`}>
+                            View Listing
+                          </Button>
+                        </Link>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {penalty.status === "disputed" && penalty.disputeReason && (
+                          <div className="p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
+                            <p className="text-sm font-medium text-amber-900 dark:text-amber-100 mb-1">Dispute Reason:</p>
+                            <p className="text-sm text-amber-800 dark:text-amber-200">{penalty.disputeReason}</p>
+                          </div>
+                        )}
+                        {penalty.status === "resolved" && penalty.resolution && (
+                          <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+                            <p className="text-sm font-medium text-green-900 dark:text-green-100 mb-1">Resolution:</p>
+                            <p className="text-sm text-green-800 dark:text-green-200">{penalty.resolution}</p>
+                            {penalty.resolvedAt && (
+                              <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+                                Resolved on {new Date(penalty.resolvedAt).toLocaleDateString()}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        {penalty.status === "disputed" && (
+                          <div className="flex gap-2">
+                            <Button variant="default" size="sm" data-testid={`button-add-evidence-${penalty.id}`}>
+                              <FileCheck className="h-4 w-4 mr-1" />
+                              Add Evidence
+                            </Button>
+                            <Button variant="outline" size="sm" data-testid={`button-contact-support-${penalty.id}`}>
+                              Contact Support
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+
+      case "locus":
+        return (
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Locus Agent Programming</h2>
+              <p className="text-muted-foreground">Interact with the Locus MCP agent using natural language</p>
+            </div>
+
             <Card>
-              <CardContent className="p-12 text-center">
-                <CheckCircle2 className="h-16 w-16 mx-auto mb-4 text-green-600" />
-                <p className="text-lg font-medium mb-2">No penalties</p>
-                <p className="text-sm text-muted-foreground">
-                  You have a clean record with no active penalty cases
+              <CardHeader>
+                <CardTitle>Natural Language Interface</CardTitle>
+                <CardDescription>
+                  Send natural language prompts to the Locus agent to execute payment operations
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Agent Prompt</label>
+                  <Input
+                    placeholder="e.g., Send $1500 deposit to demo@example.com for listing internal_3"
+                    value={locusPrompt}
+                    onChange={(e) => setLocusPrompt(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleLocusPrompt();
+                      }
+                    }}
+                    disabled={locusLoading}
+                    data-testid="input-locus-prompt"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Example prompts: "Send deposit", "Get payment context", "Check payment status"
+                  </p>
+                </div>
+
+                <Button
+                  onClick={handleLocusPrompt}
+                  disabled={locusLoading || !locusPrompt.trim()}
+                  className="w-full"
+                  data-testid="button-execute-locus"
+                >
+                  {locusLoading ? (
+                    <>
+                      <Clock className="h-4 w-4 mr-2 animate-spin" />
+                      Executing...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      Execute Prompt
+                    </>
+                  )}
+                </Button>
+
+                {locusResponse && (
+                  <div className="p-4 bg-muted rounded-lg space-y-2">
+                    <p className="text-sm font-medium">Agent Response:</p>
+                    <pre className="text-sm text-muted-foreground whitespace-pre-wrap" data-testid="text-locus-response">
+                      {locusResponse}
+                    </pre>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Example Prompts</CardTitle>
+                <CardDescription>Common Locus agent operations you can trigger</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid gap-2">
+                  <Button
+                    variant="outline"
+                    className="justify-start"
+                    onClick={() => setLocusPrompt("Send $1450 deposit to landlord@example.com for listing internal_3")}
+                    data-testid="button-example-send-deposit"
+                  >
+                    <DollarSign className="h-4 w-4 mr-2" />
+                    Send deposit payment
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="justify-start"
+                    onClick={() => setLocusPrompt("Get payment context for user demo_user@livva.com")}
+                    data-testid="button-example-get-context"
+                  >
+                    <FileCheck className="h-4 w-4 mr-2" />
+                    Get payment context
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="justify-start"
+                    onClick={() => setLocusPrompt("Send payment notification to contact demo@example.com")}
+                    data-testid="button-example-send-notification"
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    Send payment notification
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>About Locus MCP Agent</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm text-muted-foreground">
+                <p>
+                  The Locus agent uses the official @locus-technologies/langchain-mcp-m2m library with LangGraph's React agent pattern.
+                </p>
+                <p>
+                  It leverages Claude 3.5 Sonnet (ChatAnthropic) to interpret natural language prompts and execute payment operations through Locus MCP tools:
+                </p>
+                <ul className="list-disc list-inside space-y-1 ml-4">
+                  <li><code className="text-xs bg-muted px-1 py-0.5 rounded">send_to_email</code> - Create deposit escrows</li>
+                  <li><code className="text-xs bg-muted px-1 py-0.5 rounded">get_payment_context</code> - Retrieve payment information</li>
+                  <li><code className="text-xs bg-muted px-1 py-0.5 rounded">send_to_contact</code> - Send payment notifications</li>
+                </ul>
+                <p>
+                  Authentication uses OAuth Client Credentials flow with secure environment variable management.
                 </p>
               </CardContent>
             </Card>

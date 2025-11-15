@@ -403,6 +403,45 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  app.post("/api/locus/prompt", async (req, res) => {
+    try {
+      const { prompt } = req.body;
+
+      if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
+        return res.status(400).json({ error: "Missing or invalid prompt" });
+      }
+
+      const { getLocusAgent } = await import("./lib/agent/locusMCPAgent");
+      const agent = await getLocusAgent();
+      
+      if (!agent) {
+        return res.status(503).json({ 
+          error: "Locus agent not available", 
+          response: "Locus MCP agent is not configured. Please check LOCUS_CLIENT_ID and LOCUS_CLIENT_SECRET environment variables." 
+        });
+      }
+
+      const result = await agent.invoke({
+        messages: [{ role: "user", content: prompt }]
+      });
+
+      const lastMessage = result.messages[result.messages.length - 1];
+      const response = lastMessage?.content || "Agent executed successfully";
+
+      res.json({ 
+        success: true, 
+        response: typeof response === 'string' ? response : JSON.stringify(response, null, 2),
+        messages: result.messages
+      });
+    } catch (error: any) {
+      console.error("Error executing Locus prompt:", error);
+      res.status(500).json({ 
+        error: "Failed to execute Locus agent", 
+        response: `Error: ${error.message || 'Unknown error'}`
+      });
+    }
+  });
+
   // trust score endpoints
   app.get("/api/trust/:email", async (req, res) => {
     try {
