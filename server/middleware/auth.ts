@@ -1,10 +1,21 @@
 import { clerkMiddleware } from '@clerk/express';
 import type { Request, Response, NextFunction } from 'express';
 
-export const auth = clerkMiddleware({
-  publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
-  secretKey: process.env.CLERK_SECRET_KEY,
-});
+// make clerk optional if keys are not configured correctly
+const hasValidClerkKeys = 
+  process.env.CLERK_PUBLISHABLE_KEY?.startsWith('pk_') &&
+  process.env.CLERK_SECRET_KEY?.startsWith('sk_');
+
+export const auth = hasValidClerkKeys 
+  ? clerkMiddleware({
+      publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
+      secretKey: process.env.CLERK_SECRET_KEY,
+    })
+  : (req: Request, res: Response, next: NextFunction) => {
+      // mock auth middleware when clerk is not configured
+      req.auth = { userId: null, sessionId: null, orgId: null, orgRole: null, orgSlug: null };
+      next();
+    };
 
 export function requireAuthMiddleware(req: Request, res: Response, next: NextFunction) {
   const { userId } = req.auth || {};

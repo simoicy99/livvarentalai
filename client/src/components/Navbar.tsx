@@ -1,7 +1,8 @@
-import { Search, Sparkles } from "lucide-react";
-import { SignedIn, SignedOut, UserButton } from "@clerk/clerk-react";
+import { Search, Sparkles, User } from "lucide-react";
+import { SignedIn, SignedOut, UserButton, useUser } from "@clerk/clerk-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Link } from "wouter";
 
 interface NavbarProps {
@@ -10,6 +11,8 @@ interface NavbarProps {
 }
 
 export function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
+  const hasClerk = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY?.startsWith('pk_');
+  
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onSearch?.(e.target.value);
   };
@@ -49,29 +52,43 @@ export function Navbar({ onSearch, searchQuery = "" }: NavbarProps) {
               </Button>
             </Link>
             
-            <SignedOut>
-              <Link href="/sign-in">
-                <Button variant="default" data-testid="button-sign-in">
-                  Sign In
-                </Button>
-              </Link>
-            </SignedOut>
-            
-            <SignedIn>
+            {hasClerk ? (
+              <>
+                <SignedOut>
+                  <Link href="/sign-in">
+                    <Button variant="default" data-testid="button-sign-in">
+                      Sign In
+                    </Button>
+                  </Link>
+                </SignedOut>
+                
+                <SignedIn>
+                  <Link href="/portal">
+                    <Button variant="ghost" data-testid="link-portal">
+                      Portal
+                    </Button>
+                  </Link>
+                  <UserButton 
+                    afterSignOutUrl="/"
+                    appearance={{
+                      elements: {
+                        avatarBox: "h-8 w-8"
+                      }
+                    }}
+                  />
+                </SignedIn>
+              </>
+            ) : (
               <Link href="/portal">
-                <Button variant="ghost" data-testid="link-portal">
-                  Portal
+                <Button variant="ghost" size="icon" data-testid="button-profile">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="bg-primary text-primary-foreground">
+                      <User className="h-4 w-4" />
+                    </AvatarFallback>
+                  </Avatar>
                 </Button>
               </Link>
-              <UserButton 
-                afterSignOutUrl="/"
-                appearance={{
-                  elements: {
-                    avatarBox: "h-8 w-8"
-                  }
-                }}
-              />
-            </SignedIn>
+            )}
           </div>
         </div>
       </div>
