@@ -8,8 +8,6 @@ import Home from "@/pages/home";
 import ListingDetail from "@/pages/listing-detail";
 import AgentDemo from "@/pages/agent-demo";
 import Portal from "@/pages/portal";
-import SignIn from "@/pages/sign-in";
-import SignUp from "@/pages/sign-up";
 import NotFound from "@/pages/not-found";
 
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -24,8 +22,6 @@ function Router() {
       <Route path="/listing/:id" component={ListingDetail} />
       <Route path="/agents" component={AgentDemo} />
       <Route path="/portal" component={Portal} />
-      <Route path="/sign-in" component={SignIn} />
-      <Route path="/sign-up" component={SignUp} />
       <Route component={NotFound} />
     </Switch>
   );
