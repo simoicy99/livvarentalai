@@ -199,6 +199,37 @@ export const agentActivitiesRelations = relations(agentActivities, ({ one }) => 
   }),
 }));
 
+// payments table for tracking rent, deposits, and fees
+export const payments = pgTable("payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  listingId: varchar("listing_id").references(() => listings.id, { onDelete: "set null" }),
+  stripePaymentIntentId: varchar("stripe_payment_intent_id").unique(),
+  amount: real("amount").notNull(),
+  currency: varchar("currency").notNull().default("usd"),
+  paymentType: varchar("payment_type", { 
+    enum: ["deposit", "rent", "application_fee", "other"] 
+  }).notNull(),
+  status: varchar("status", { 
+    enum: ["pending", "completed", "failed", "refunded", "cancelled"] 
+  }).notNull().default("pending"),
+  description: text("description"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const paymentsRelations = relations(payments, ({ one }) => ({
+  user: one(users, {
+    fields: [payments.userId],
+    references: [users.id],
+  }),
+  listing: one(listings, {
+    fields: [payments.listingId],
+    references: [listings.id],
+  }),
+}));
+
 // type exports
 export type User = typeof users.$inferSelect;
 export type UpsertUser = typeof users.$inferInsert;
@@ -220,6 +251,9 @@ export type InsertTenantPreferences = z.infer<typeof insertTenantPreferencesSche
 
 export type AgentActivity = typeof agentActivities.$inferSelect;
 export type InsertAgentActivity = z.infer<typeof insertAgentActivitySchema>;
+
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 
 // zod schemas for validation
 export const insertListingSchema = createInsertSchema(listings, {
@@ -263,4 +297,18 @@ export const insertTenantPreferencesSchema = createInsertSchema(tenantPreference
 export const insertAgentActivitySchema = createInsertSchema(agentActivities).omit({
   id: true,
   createdAt: true,
+});
+
+export const insertPaymentSchema = createInsertSchema(payments, {
+  amount: z.number()
+    .min(0.5, "Amount must be at least $0.50")
+    .refine(
+      (val) => Math.round(val * 100) === val * 100,
+      "Amount must have at most 2 decimal places"
+    ),
+  currency: z.enum(["usd", "eur", "gbp", "cad", "aud"]).default("usd"),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });

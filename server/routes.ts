@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
@@ -11,10 +12,15 @@ import {
   insertMessageSchema,
   insertMatchSchema,
   insertTenantPreferencesSchema,
+  insertPaymentSchema,
 } from "@shared/schema";
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
+}
+
+if (!process.env.STRIPE_WEBHOOK_SECRET) {
+  console.warn('WARNING: STRIPE_WEBHOOK_SECRET not configured. Webhook signature verification will fail. Configure this in production.');
 }
 
 if (!process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID) {
@@ -29,6 +35,64 @@ const objectStorageClient = new Client({
   bucketId: process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID,
 });
 const uploadMiddleware = multer({ storage: multer.memoryStorage() });
+
+export function registerStripeWebhook(app: Express): void {
+  app.post("/api/payments/webhook", 
+    express.raw({ type: '*/*' }),
+    async (req: any, res) => {
+      try {
+        const sig = req.headers['stripe-signature'];
+        const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+        if (!webhookSecret) {
+          console.error('STRIPE_WEBHOOK_SECRET not configured. Rejecting webhook.');
+          return res.status(500).json({ message: 'Webhook secret not configured' });
+        }
+
+        if (!sig) {
+          console.error('Missing stripe-signature header');
+          return res.status(400).json({ message: 'Missing stripe-signature header' });
+        }
+
+        let event;
+        try {
+          event = stripe.webhooks.constructEvent(
+            req.body as Buffer,
+            sig as string,
+            webhookSecret
+          );
+        } catch (err: any) {
+          console.error('Webhook signature verification failed:', err.message);
+          return res.status(400).send(`Webhook Error: ${err.message}`);
+        }
+
+      if (event.type === 'payment_intent.succeeded') {
+        const paymentIntent = event.data.object;
+        
+        const payment = await storage.getPaymentByStripeIntentId(paymentIntent.id);
+
+        if (payment) {
+          await storage.updatePaymentStatus(payment.id, "completed");
+          console.log(`Payment ${payment.id} marked as completed`);
+        }
+      } else if (event.type === 'payment_intent.payment_failed') {
+        const paymentIntent = event.data.object;
+        
+        const payment = await storage.getPaymentByStripeIntentId(paymentIntent.id);
+
+        if (payment) {
+          await storage.updatePaymentStatus(payment.id, "failed");
+          console.log(`Payment ${payment.id} marked as failed`);
+        }
+      }
+
+      res.json({ received: true });
+    } catch (error: any) {
+      console.error("Webhook error:", error);
+      res.status(400).json({ message: "Webhook error: " + error.message });
+    }
+  });
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
@@ -394,16 +458,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/create-payment-intent", isAuthenticated, async (req, res) => {
+  app.post("/api/create-payment-intent", isAuthenticated, async (req: any, res) => {
     try {
-      const { amount } = req.body;
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(amount * 100),
-        currency: "usd",
+      const userId = req.user.claims.sub;
+      
+      const validatedData = insertPaymentSchema.parse({
+        ...req.body,
+        userId,
+        listingId: req.body.listingId || null,
+        status: "pending",
+        metadata: {},
       });
-      res.json({ clientSecret: paymentIntent.client_secret });
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(validatedData.amount * 100),
+        currency: validatedData.currency,
+        metadata: {
+          userId,
+          paymentType: validatedData.paymentType,
+          listingId: validatedData.listingId || '',
+        },
+      });
+
+      const payment = await storage.createPayment({
+        ...validatedData,
+        stripePaymentIntentId: paymentIntent.id,
+      });
+
+      res.json({ 
+        clientSecret: paymentIntent.client_secret,
+        paymentId: payment.id,
+      });
     } catch (error: any) {
-      res.status(500).json({ message: "Error creating payment intent: " + error.message });
+      console.error("Error creating payment intent:", error);
+      res.status(400).json({ message: error.message || "Failed to create payment intent" });
+    }
+  });
+
+  app.get("/api/payments", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { listingId } = req.query;
+      
+      const payments = await storage.getPayments(userId, listingId as string | undefined);
+      res.json(payments);
+    } catch (error: any) {
+      console.error("Error fetching payments:", error);
+      res.status(500).json({ message: "Failed to fetch payments: " + error.message });
+    }
+  });
+
+  app.get("/api/payments/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const payment = await storage.getPayment(id);
+      
+      if (!payment) {
+        return res.status(404).json({ message: "Payment not found" });
+      }
+      
+      if (payment.userId !== userId) {
+        return res.status(403).json({ message: "Unauthorized to access this payment" });
+      }
+      
+      res.json(payment);
+    } catch (error: any) {
+      console.error("Error fetching payment:", error);
+      res.status(500).json({ message: "Failed to fetch payment: " + error.message });
     }
   });
 

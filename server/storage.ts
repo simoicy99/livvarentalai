@@ -6,6 +6,7 @@ import {
   trustScores,
   tenantPreferences,
   agentActivities,
+  payments,
   type User,
   type UpsertUser,
   type Listing,
@@ -20,6 +21,8 @@ import {
   type InsertTenantPreferences,
   type AgentActivity,
   type InsertAgentActivity,
+  type Payment,
+  type InsertPayment,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, sql, gte, lte } from "drizzle-orm";
@@ -53,6 +56,12 @@ export interface IStorage {
   
   createAgentActivity(activity: InsertAgentActivity): Promise<AgentActivity>;
   getAgentActivities(userId?: string, limit?: number): Promise<AgentActivity[]>;
+  
+  createPayment(payment: InsertPayment): Promise<Payment>;
+  getPayments(userId?: string, listingId?: string): Promise<Payment[]>;
+  getPayment(id: string): Promise<Payment | undefined>;
+  getPaymentByStripeIntentId(stripePaymentIntentId: string): Promise<Payment | undefined>;
+  updatePaymentStatus(id: string, status: Payment["status"]): Promise<Payment>;
   
   getDashboardStats(userId: string, userType: string): Promise<any>;
 }
@@ -314,6 +323,53 @@ export class DatabaseStorage implements IStorage {
       .from(agentActivities)
       .orderBy(desc(agentActivities.createdAt))
       .limit(limit);
+  }
+
+  async createPayment(payment: InsertPayment): Promise<Payment> {
+    const [created] = await db.insert(payments).values(payment).returning();
+    return created;
+  }
+
+  async getPayments(userId?: string, listingId?: string): Promise<Payment[]> {
+    const conditions = [];
+    if (userId) {
+      conditions.push(eq(payments.userId, userId));
+    }
+    if (listingId) {
+      conditions.push(eq(payments.listingId, listingId));
+    }
+
+    if (conditions.length === 0) {
+      return await db.select().from(payments).orderBy(desc(payments.createdAt));
+    }
+
+    return await db
+      .select()
+      .from(payments)
+      .where(and(...conditions))
+      .orderBy(desc(payments.createdAt));
+  }
+
+  async getPayment(id: string): Promise<Payment | undefined> {
+    const [payment] = await db.select().from(payments).where(eq(payments.id, id));
+    return payment;
+  }
+
+  async getPaymentByStripeIntentId(stripePaymentIntentId: string): Promise<Payment | undefined> {
+    const [payment] = await db
+      .select()
+      .from(payments)
+      .where(eq(payments.stripePaymentIntentId, stripePaymentIntentId));
+    return payment;
+  }
+
+  async updatePaymentStatus(id: string, status: Payment["status"]): Promise<Payment> {
+    const [payment] = await db
+      .update(payments)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(payments.id, id))
+      .returning();
+    return payment;
   }
 
   async getDashboardStats(userId: string, userType: string): Promise<any> {
