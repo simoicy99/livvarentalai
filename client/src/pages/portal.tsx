@@ -1,17 +1,29 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Heart, MessageSquare, DollarSign, User, Trash2, ExternalLink, Building2, Shield, FileCheck, AlertTriangle, Home, Calendar, MapPin, Star, Send, CheckCircle2, Clock, AlertCircle } from "lucide-react";
+import { Link, useLocation, useSearch } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { MessageSquare, Heart, DollarSign, User, Trash2, ExternalLink, Building2, Shield, FileCheck, AlertTriangle } from "lucide-react";
-import { Link } from "wouter";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { Input } from "@/components/ui/input";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+  SidebarHeader,
+} from "@/components/ui/sidebar";
+import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Navbar } from "@/components/Navbar";
 
 type SavedListing = {
   id: number;
@@ -38,89 +50,225 @@ type MatchResult = {
   reasons: string[];
 };
 
-type TrustProfile = {
-  email: string;
-  score: number;
-  events: Array<{
-    type: string;
-    delta: number;
-    reason: string;
-    timestamp: string;
-  }>;
-  verifiedIdentity: boolean;
-  verifiedPhone: boolean;
-  verifiedEmail: boolean;
-};
+const demoSavedListings = [
+  {
+    id: 1,
+    userId: "demo_user",
+    listingId: "internal_3",
+    title: "Private Room in Mission District",
+    price: 1450,
+    address: "24th Street",
+    notes: "Great location near BART, love the natural light!",
+    savedAt: "2024-11-10T10:30:00Z",
+    imageUrl: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400"
+  },
+  {
+    id: 2,
+    userId: "demo_user",
+    listingId: "zillow_5",
+    title: "Private Room in Noe Valley",
+    price: 1650,
+    address: "Church Street",
+    notes: "Close to cafes and parks. Roommates seem friendly.",
+    savedAt: "2024-11-12T14:20:00Z",
+    imageUrl: "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400"
+  },
+  {
+    id: 3,
+    userId: "demo_user",
+    listingId: "apartments_8",
+    title: "Private Room in Hayes Valley",
+    price: 1550,
+    address: "Hayes Street",
+    notes: "Perfect for my budget, touring this weekend!",
+    savedAt: "2024-11-13T16:45:00Z",
+    imageUrl: "https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=400"
+  },
+  {
+    id: 4,
+    userId: "demo_user",
+    listingId: "internal_12",
+    title: "Private Room in Castro",
+    price: 1500,
+    address: "Castro Street",
+    notes: "Inclusive community, great transit access",
+    savedAt: "2024-11-14T09:15:00Z",
+    imageUrl: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=400"
+  }
+];
 
-type VerificationUpload = {
-  type: string;
-  url: string;
-  uploadedBy: string;
-  timestamp: string;
-  description?: string;
-};
+const demoMatches = [
+  {
+    listing: {
+      id: "internal_7",
+      title: "Private Room in Sunset District",
+      price: 1300,
+      address: "Irving Street",
+      bedrooms: 1,
+      bathrooms: 0.5,
+      imageUrl: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400"
+    },
+    score: 95,
+    reasons: [
+      "Within your budget of $1,000-$1,800",
+      "Located in preferred neighborhood",
+      "Available on your move-in date (Dec 1)",
+      "Great reviews from previous tenants"
+    ]
+  },
+  {
+    listing: {
+      id: "zillow_12",
+      title: "Private Room in Inner Richmond",
+      price: 1350,
+      address: "Geary Boulevard",
+      bedrooms: 1,
+      bathrooms: 0.5,
+      imageUrl: "https://images.unsplash.com/photo-1558036117-15d82a90b9b1?w=400"
+    },
+    score: 88,
+    reasons: [
+      "Excellent price for the area",
+      "Close to Golden Gate Park",
+      "Pet-friendly (you mentioned a cat)",
+      "In-unit laundry"
+    ]
+  },
+  {
+    listing: {
+      id: "apartments_14",
+      title: "Private Room in Potrero Hill",
+      price: 1550,
+      address: "18th Street",
+      bedrooms: 1,
+      bathrooms: 1,
+      imageUrl: "https://images.unsplash.com/photo-1536376072261-38c75010e6c9?w=400"
+    },
+    score: 82,
+    reasons: [
+      "Private bathroom included",
+      "Quiet professional household",
+      "Near tech shuttle stops",
+      "Recently renovated"
+    ]
+  }
+];
 
-type VerificationCase = {
-  escrowId: string;
-  listingId: string;
-  tenantEmail: string;
-  landlordEmail: string;
-  tenantUploads: VerificationUpload[];
-  landlordUploads: VerificationUpload[];
-  hasDispute: boolean;
-  status: string;
-  decision?: {
-    decision: string;
-    reason: string;
-    confidence: number;
-    partialAmount?: number;
-  };
-};
+const demoChats = [
+  {
+    id: "chat-1",
+    listingId: "internal_3",
+    listingTitle: "Private Room in Mission District",
+    landlordName: "Sarah Chen",
+    lastMessage: "The room is still available! When would you like to schedule a viewing?",
+    lastMessageTime: "2024-11-14T14:30:00Z",
+    unreadCount: 2,
+    messages: [
+      { id: "1", sender: "user", text: "Hi! I'm interested in the room on 24th Street. Is it still available?", timestamp: "2024-11-14T10:00:00Z" },
+      { id: "2", sender: "landlord", text: "Hi there! Yes, the room is still available. Would you like to schedule a viewing?", timestamp: "2024-11-14T10:15:00Z" },
+      { id: "3", sender: "user", text: "That would be great! I'm available this weekend. What times work for you?", timestamp: "2024-11-14T14:00:00Z" },
+      { id: "4", sender: "landlord", text: "The room is still available! When would you like to schedule a viewing?", timestamp: "2024-11-14T14:30:00Z" }
+    ]
+  },
+  {
+    id: "chat-2",
+    listingId: "zillow_5",
+    listingTitle: "Private Room in Noe Valley",
+    landlordName: "Michael Rodriguez",
+    lastMessage: "We have an application form I can send you if you're interested",
+    lastMessageTime: "2024-11-13T16:20:00Z",
+    unreadCount: 0,
+    messages: [
+      { id: "1", sender: "user", text: "Hello! I saw your listing in Noe Valley. Can you tell me more about the roommates?", timestamp: "2024-11-13T15:00:00Z" },
+      { id: "2", sender: "landlord", text: "Hi! We're two working professionals in our late 20s. One works in tech, the other in healthcare. Pretty quiet household.", timestamp: "2024-11-13T15:30:00Z" },
+      { id: "3", sender: "user", text: "That sounds perfect! I'm also a working professional. What's the next step?", timestamp: "2024-11-13T16:00:00Z" },
+      { id: "4", sender: "landlord", text: "We have an application form I can send you if you're interested", timestamp: "2024-11-13T16:20:00Z" }
+    ]
+  },
+  {
+    id: "chat-3",
+    listingId: "apartments_8",
+    listingTitle: "Private Room in Hayes Valley",
+    landlordName: "Jessica Park",
+    lastMessage: "Thanks for your interest! Let me know if you have other questions.",
+    lastMessageTime: "2024-11-12T11:45:00Z",
+    unreadCount: 0,
+    messages: [
+      { id: "1", sender: "user", text: "Hi! Are utilities included in the rent?", timestamp: "2024-11-12T10:00:00Z" },
+      { id: "2", sender: "landlord", text: "Internet and water are included. PG&E is split between roommates, usually around $40-60/month per person.", timestamp: "2024-11-12T11:00:00Z" },
+      { id: "3", sender: "user", text: "Perfect, thank you for clarifying!", timestamp: "2024-11-12T11:30:00Z" },
+      { id: "4", sender: "landlord", text: "Thanks for your interest! Let me know if you have other questions.", timestamp: "2024-11-12T11:45:00Z" }
+    ]
+  }
+];
 
-type Penalty = {
-  id: string;
-  eventType: string;
-  fromEmail: string;
-  toEmail: string;
-  amount: number;
-  currency: string;
-  reason: string;
-  status: string;
-  timestamp: string;
-};
+const demoEscrows: EscrowRecord[] = [
+  {
+    id: "escrow-1",
+    listingId: "internal_3",
+    tenantEmail: "demo_user@livva.com",
+    amount: 1450,
+    currency: "usd",
+    status: "funded",
+    channel: "locus",
+    createdAt: "2024-11-14T15:00:00Z"
+  },
+  {
+    id: "escrow-2",
+    listingId: "zillow_5",
+    tenantEmail: "demo_user@livva.com",
+    amount: 1650,
+    currency: "usd",
+    status: "pending",
+    channel: "locus",
+    createdAt: "2024-11-13T10:00:00Z"
+  },
+  {
+    id: "escrow-3",
+    listingId: "internal_7",
+    tenantEmail: "demo_user@livva.com",
+    amount: 1300,
+    currency: "usd",
+    status: "released",
+    channel: "stripe",
+    createdAt: "2024-10-15T12:00:00Z"
+  }
+];
+
+const menuItems = [
+  { id: "saved", icon: Heart, label: "Saved Listings", href: "/portal?tab=saved" },
+  { id: "matches", icon: Building2, label: "AI Matches", href: "/portal?tab=matches" },
+  { id: "chats", icon: MessageSquare, label: "Chats", href: "/portal?tab=chats" },
+  { id: "finances", icon: DollarSign, label: "Finances", href: "/portal?tab=finances" },
+  { id: "trust", icon: Shield, label: "Trust Score", href: "/portal?tab=trust" },
+  { id: "verification", icon: FileCheck, label: "Move-In Verify", href: "/portal?tab=verification" },
+  { id: "penalties", icon: AlertTriangle, label: "Penalties", href: "/portal?tab=penalties" }
+];
 
 export default function Portal() {
+  const searchString = useSearch();
   const [userId] = useState("demo_user");
   const [userEmail] = useState("demo_user@livva.com");
+  const [selectedChat, setSelectedChat] = useState<string | null>(null);
+  const [messageText, setMessageText] = useState("");
   const { toast } = useToast();
 
-  const { data: savedListings = [], isLoading: loadingSaved } = useQuery<SavedListing[]>({
+  const urlParams = new URLSearchParams(searchString);
+  const activeTab = urlParams.get('tab') || 'saved';
+
+  const { data: fetchedSaved = [], isLoading: loadingSaved } = useQuery<SavedListing[]>({
     queryKey: ["/api/saved", userId],
     enabled: !!userId,
   });
 
-  const { data: escrows = [], isLoading: loadingEscrows } = useQuery<EscrowRecord[]>({
+  const { data: fetchedEscrows = [], isLoading: loadingEscrows } = useQuery<EscrowRecord[]>({
     queryKey: ["/api/escrow", userId],
     enabled: !!userId,
   });
 
-  const { data: matches = [], isLoading: loadingMatches } = useQuery<MatchResult[]>({
+  const { data: fetchedMatches = [], isLoading: loadingMatches } = useQuery<MatchResult[]>({
     queryKey: ["/api/matches", userId],
     enabled: !!userId,
-  });
-
-  const { data: trustProfile, isLoading: loadingTrust } = useQuery<TrustProfile>({
-    queryKey: ["/api/trust", userEmail],
-    enabled: !!userEmail,
-  });
-
-  const { data: verificationCases = [], isLoading: loadingVerifications } = useQuery<VerificationCase[]>({
-    queryKey: ["/api/verification"],
-  });
-
-  const { data: penalties = [], isLoading: loadingPenalties } = useQuery<Penalty[]>({
-    queryKey: ["/api/penalties"],
-    queryFn: () => fetch(`/api/penalties?email=${userEmail}`).then(r => r.json()),
   });
 
   const deleteSavedMutation = useMutation({
@@ -142,537 +290,632 @@ export default function Portal() {
     },
   });
 
-  return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
+  const savedListings = fetchedSaved.length > 0 ? fetchedSaved : demoSavedListings;
+  const escrows = fetchedEscrows.length > 0 ? fetchedEscrows : demoEscrows;
+  const matches = fetchedMatches.length > 0 ? fetchedMatches : demoMatches;
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center gap-4 mb-8">
-          <Avatar className="h-16 w-16">
-            <AvatarFallback className="bg-primary text-primary-foreground text-xl">
-              <User className="h-8 w-8" />
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <h1 className="text-3xl font-bold">My Portal</h1>
-            <p className="text-muted-foreground">Manage your rental journey</p>
-          </div>
-        </div>
+  const sidebarStyle = {
+    "--sidebar-width": "16rem",
+    "--sidebar-width-icon": "4rem",
+  } as React.CSSProperties;
 
-        <Tabs defaultValue="saved" className="w-full">
-          <TabsList className="grid w-full grid-cols-7 mb-6">
-            <TabsTrigger value="saved" data-testid="tab-saved">
-              <Heart className="h-4 w-4 mr-2" />
-              Saved
-            </TabsTrigger>
-            <TabsTrigger value="matches" data-testid="tab-matches">
-              <Building2 className="h-4 w-4 mr-2" />
-              Matches
-            </TabsTrigger>
-            <TabsTrigger value="chats" data-testid="tab-chats">
-              <MessageSquare className="h-4 w-4 mr-2" />
-              Chats
-            </TabsTrigger>
-            <TabsTrigger value="finances" data-testid="tab-finances">
-              <DollarSign className="h-4 w-4 mr-2" />
-              Finances
-            </TabsTrigger>
-            <TabsTrigger value="trust" data-testid="tab-trust">
-              <Shield className="h-4 w-4 mr-2" />
-              Trust
-            </TabsTrigger>
-            <TabsTrigger value="verification" data-testid="tab-verification">
-              <FileCheck className="h-4 w-4 mr-2" />
-              Verify
-            </TabsTrigger>
-            <TabsTrigger value="penalties" data-testid="tab-penalties">
-              <AlertTriangle className="h-4 w-4 mr-2" />
-              Penalties
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="saved">
-            <Card>
-              <CardHeader>
-                <CardTitle>Saved Listings</CardTitle>
-                <CardDescription>
-                  Properties you've bookmarked for later
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loadingSaved ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Loading saved listings...
-                  </div>
-                ) : savedListings.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Heart className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-muted-foreground mb-4">No saved listings yet</p>
-                    <Link href="/">
-                      <Button data-testid="button-browse-listings">
-                        Browse Listings
-                      </Button>
-                    </Link>
-                  </div>
-                ) : (
-                  <ScrollArea className="h-[500px]">
-                    <div className="space-y-4">
-                      {savedListings.map((item) => (
-                        <Card key={item.id} className="hover-elevate">
-                          <CardContent className="p-4">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Building2 className="h-4 w-4 text-muted-foreground" />
-                                  <span className="font-medium" data-testid={`text-listing-id-${item.listingId}`}>
-                                    Listing #{item.listingId}
+  const renderContent = () => {
+    switch (activeTab) {
+      case "saved":
+        return (
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Saved Listings</h2>
+              <p className="text-muted-foreground">Properties you've bookmarked for later</p>
+            </div>
+            
+            {loadingSaved ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Loading saved listings...
+              </div>
+            ) : savedListings.length === 0 ? (
+              <div className="text-center py-12">
+                <Heart className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground mb-4">No saved listings yet</p>
+                <Link href="/">
+                  <Button data-testid="button-browse-listings">
+                    Browse Listings
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {savedListings.map((item: any) => (
+                  <Card key={item.id} className="hover-elevate" data-testid={`card-saved-${item.id}`}>
+                    <CardContent className="p-4">
+                      <div className="flex gap-4">
+                        {item.imageUrl && (
+                          <div className="w-32 h-24 rounded-md overflow-hidden bg-muted flex-shrink-0">
+                            <img src={item.imageUrl} alt={item.title || 'Listing'} className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <Link href={`/listing/${item.listingId}`}>
+                                <h3 className="font-semibold hover:text-primary mb-1" data-testid={`text-listing-title-${item.id}`}>
+                                  {item.title || `Listing #${item.listingId}`}
+                                </h3>
+                              </Link>
+                              {item.price && item.address && (
+                                <div className="flex items-center gap-3 text-sm text-muted-foreground mb-2">
+                                  <span className="flex items-center gap-1">
+                                    <DollarSign className="h-3 w-3" />
+                                    ${item.price}/mo
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <MapPin className="h-3 w-3" />
+                                    {item.address}
                                   </span>
                                 </div>
-                                {item.notes && (
-                                  <p className="text-sm text-muted-foreground mb-2">
-                                    {item.notes}
-                                  </p>
-                                )}
-                                <p className="text-xs text-muted-foreground">
-                                  Saved {new Date(item.savedAt).toLocaleDateString()}
-                                </p>
-                              </div>
-                              <div className="flex gap-2">
-                                <Link href={`/listing/${item.listingId}`}>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    data-testid={`button-view-${item.listingId}`}
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                  </Button>
-                                </Link>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => deleteSavedMutation.mutate(item.listingId)}
-                                  disabled={deleteSavedMutation.isPending}
-                                  data-testid={`button-delete-${item.listingId}`}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
+                              )}
+                              {item.notes && (
+                                <p className="text-sm text-muted-foreground mb-2 italic">"{item.notes}"</p>
+                              )}
+                              <p className="text-xs text-muted-foreground">
+                                Saved {new Date(item.savedAt).toLocaleDateString()}
+                              </p>
                             </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="matches">
-            <Card>
-              <CardHeader>
-                <CardTitle>AI Matches</CardTitle>
-                <CardDescription>
-                  Properties matched to your preferences
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loadingMatches ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Loading matches...
-                  </div>
-                ) : matches.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Building2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-muted-foreground mb-4">No matches yet</p>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Visit the Agents page to get AI-powered recommendations
-                    </p>
-                    <Link href="/agents">
-                      <Button data-testid="button-try-agents">
-                        Try Agent Demo
-                      </Button>
-                    </Link>
-                  </div>
-                ) : (
-                  <ScrollArea className="h-[500px]">
-                    <div className="space-y-4">
-                      {matches.map((match, idx) => (
-                        <Card key={idx} className="hover-elevate">
-                          <CardContent className="p-4">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Badge variant="default" data-testid={`badge-score-${idx}`}>
-                                    {match.score}% match
-                                  </Badge>
-                                  <span className="font-medium">{match.listing.title}</span>
-                                </div>
-                                <div className="space-y-1 mb-3">
-                                  {match.reasons.map((reason, i) => (
-                                    <p key={i} className="text-sm text-muted-foreground">
-                                      • {reason}
-                                    </p>
-                                  ))}
-                                </div>
-                              </div>
-                              <Link href={`/listing/${match.listing.id}`}>
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  data-testid={`button-view-match-${idx}`}
-                                >
-                                  View Listing
+                            <div className="flex gap-2">
+                              <Link href={`/listing/${item.listingId}`}>
+                                <Button variant="outline" size="sm" data-testid={`button-view-saved-${item.id}`}>
+                                  <ExternalLink className="h-4 w-4 mr-1" />
+                                  View
                                 </Button>
                               </Link>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => deleteSavedMutation.mutate(item.listingId)}
+                                disabled={deleteSavedMutation.isPending}
+                                data-testid={`button-unsave-${item.id}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        );
 
-          <TabsContent value="chats">
-            <Card>
-              <CardHeader>
-                <CardTitle>Chat Logs</CardTitle>
-                <CardDescription>
-                  Your conversations with landlords
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-12">
-                  <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-muted-foreground mb-4">No conversations yet</p>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Use the Communication Agent to send messages to landlords
-                  </p>
-                  <Link href="/agents">
-                    <Button data-testid="button-start-chat">
-                      Try Agent Demo
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="finances">
-            <Card>
-              <CardHeader>
-                <CardTitle>Finances & Escrows</CardTitle>
-                <CardDescription>
-                  Track your deposits and payments
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loadingEscrows ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Loading escrows...
-                  </div>
-                ) : escrows.length === 0 ? (
-                  <div className="text-center py-12">
-                    <DollarSign className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-muted-foreground mb-4">No escrows yet</p>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Create secure deposits through the Payments Agent
-                    </p>
-                    <Link href="/agents">
-                      <Button data-testid="button-create-escrow">
-                        Try Agent Demo
-                      </Button>
-                    </Link>
-                  </div>
-                ) : (
-                  <ScrollArea className="h-[500px]">
-                    <div className="space-y-4">
-                      {escrows.map((escrow) => (
-                        <Card key={escrow.id} className="hover-elevate">
-                          <CardContent className="p-4">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Badge
-                                    variant={
-                                      escrow.status === "funded"
-                                        ? "default"
-                                        : escrow.status === "released"
-                                        ? "secondary"
-                                        : "outline"
-                                    }
-                                    data-testid={`badge-status-${escrow.id}`}
-                                  >
-                                    {escrow.status}
-                                  </Badge>
-                                  <span className="font-medium" data-testid={`text-amount-${escrow.id}`}>
-                                    {escrow.amount} {escrow.currency.toUpperCase()}
-                                  </span>
-                                </div>
-                                <p className="text-sm text-muted-foreground mb-1">
-                                  Listing: {escrow.listingId}
-                                </p>
-                                <p className="text-sm text-muted-foreground mb-1">
-                                  Channel: {escrow.channel}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  Created {new Date(escrow.createdAt).toLocaleDateString()}
-                                </p>
-                              </div>
-                              <div className="flex flex-col gap-2">
-                                <Link href={`/listing/${escrow.listingId}`}>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    data-testid={`button-view-listing-${escrow.id}`}
-                                  >
-                                    View Listing
-                                  </Button>
+      case "matches":
+        return (
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">AI-Powered Matches</h2>
+              <p className="text-muted-foreground">Listings matched to your preferences using our Match Agent</p>
+            </div>
+            
+            {loadingMatches ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Loading matches...
+              </div>
+            ) : matches.length === 0 ? (
+              <div className="text-center py-12">
+                <Building2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground mb-4">No matches yet</p>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Visit the Agents page to get AI-powered recommendations
+                </p>
+                <Link href="/agents">
+                  <Button data-testid="button-try-agents">
+                    Try Agent Demo
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {matches.map((match, idx) => (
+                  <Card key={idx} className="hover-elevate" data-testid={`card-match-${idx}`}>
+                    <CardContent className="p-4">
+                      <div className="flex gap-4">
+                        {match.listing.imageUrl && (
+                          <div className="w-32 h-24 rounded-md overflow-hidden bg-muted flex-shrink-0">
+                            <img src={match.listing.imageUrl} alt={match.listing.title} className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between gap-4 mb-3">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge variant="default" className="bg-primary" data-testid={`badge-score-${idx}`}>
+                                  <Star className="h-3 w-3 mr-1" />
+                                  {match.score}% Match
+                                </Badge>
+                                <Link href={`/listing/${match.listing.id}`}>
+                                  <h3 className="font-semibold hover:text-primary" data-testid={`text-match-title-${idx}`}>{match.listing.title}</h3>
                                 </Link>
                               </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="trust">
-            <Card>
-              <CardHeader>
-                <CardTitle>Trust Score</CardTitle>
-                <CardDescription>
-                  Your reputation and verification status
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loadingTrust ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Loading trust profile...
-                  </div>
-                ) : trustProfile ? (
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between p-6 bg-muted rounded-lg">
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-1">Your Trust Score</p>
-                        <p className="text-4xl font-bold" data-testid="text-trust-score">
-                          {trustProfile.score}
-                          <span className="text-xl text-muted-foreground">/100</span>
-                        </p>
-                      </div>
-                      <Shield className="h-16 w-16 text-primary" />
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="p-4 bg-card border rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <FileCheck className="h-4 w-4 text-muted-foreground" />
-                          <p className="text-sm font-medium">Email</p>
-                        </div>
-                        <Badge variant={trustProfile.verifiedEmail ? "default" : "outline"}>
-                          {trustProfile.verifiedEmail ? "Verified" : "Not Verified"}
-                        </Badge>
-                      </div>
-                      <div className="p-4 bg-card border rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <FileCheck className="h-4 w-4 text-muted-foreground" />
-                          <p className="text-sm font-medium">Phone</p>
-                        </div>
-                        <Badge variant={trustProfile.verifiedPhone ? "default" : "outline"}>
-                          {trustProfile.verifiedPhone ? "Verified" : "Not Verified"}
-                        </Badge>
-                      </div>
-                      <div className="p-4 bg-card border rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <FileCheck className="h-4 w-4 text-muted-foreground" />
-                          <p className="text-sm font-medium">Identity</p>
-                        </div>
-                        <Badge variant={trustProfile.verifiedIdentity ? "default" : "outline"}>
-                          {trustProfile.verifiedIdentity ? "Verified" : "Not Verified"}
-                        </Badge>
-                      </div>
-                    </div>
-
-                    <Separator />
-
-                    <div>
-                      <h3 className="text-sm font-medium mb-3">Recent Activity</h3>
-                      <ScrollArea className="h-[300px]">
-                        <div className="space-y-2">
-                          {trustProfile.events.slice(0, 10).map((event, idx) => (
-                            <div key={idx} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                              <div className="flex-1">
-                                <p className="text-sm font-medium">{event.type.replace(/_/g, ' ')}</p>
-                                <p className="text-xs text-muted-foreground">{event.reason}</p>
+                              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                  <DollarSign className="h-3 w-3" />
+                                  ${match.listing.price}/mo
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <MapPin className="h-3 w-3" />
+                                  {match.listing.address}
+                                </span>
                               </div>
-                              <Badge variant={event.delta > 0 ? "default" : "destructive"}>
-                                {event.delta > 0 ? "+" : ""}{event.delta}
+                            </div>
+                            <Link href={`/listing/${match.listing.id}`}>
+                              <Button size="sm" data-testid={`button-view-match-${idx}`}>
+                                View Listing
+                              </Button>
+                            </Link>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground mb-1">Why this matches:</p>
+                            {match.reasons.map((reason, i) => (
+                              <div key={i} className="flex items-start gap-2">
+                                <CheckCircle2 className="h-3 w-3 text-primary mt-0.5 flex-shrink-0" />
+                                <p className="text-sm text-muted-foreground">{reason}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+
+      case "chats":
+        return (
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Chat Logs</h2>
+              <p className="text-muted-foreground">Your conversations with landlords</p>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-4">
+              <div className="col-span-1">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Conversations</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <ScrollArea className="h-[500px]">
+                      {demoChats.map((chat) => (
+                        <div
+                          key={chat.id}
+                          className={`p-3 border-b cursor-pointer hover-elevate ${selectedChat === chat.id ? 'bg-muted' : ''}`}
+                          onClick={() => setSelectedChat(chat.id)}
+                          data-testid={`chat-item-${chat.id}`}
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <p className="font-medium text-sm">{chat.landlordName}</p>
+                            {chat.unreadCount > 0 && (
+                              <Badge variant="default" className="h-5 px-1.5" data-testid={`badge-unread-${chat.id}`}>
+                                {chat.unreadCount}
                               </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mb-1">{chat.listingTitle}</p>
+                          <p className="text-xs text-muted-foreground truncate">{chat.lastMessage}</p>
+                        </div>
+                      ))}
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              </div>
+              
+              <div className="col-span-2">
+                {selectedChat ? (
+                  <Card className="h-full">
+                    <CardHeader className="border-b">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-base" data-testid={`text-chat-landlord-${selectedChat}`}>
+                            {demoChats.find(c => c.id === selectedChat)?.landlordName}
+                          </CardTitle>
+                          <CardDescription className="text-xs">
+                            {demoChats.find(c => c.id === selectedChat)?.listingTitle}
+                          </CardDescription>
+                        </div>
+                        <Link href={`/listing/${demoChats.find(c => c.id === selectedChat)?.listingId}`}>
+                          <Button variant="outline" size="sm" data-testid={`button-view-listing-${selectedChat}`}>
+                            View Listing
+                          </Button>
+                        </Link>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-4">
+                      <ScrollArea className="h-[350px] mb-4">
+                        <div className="space-y-3">
+                          {demoChats.find(c => c.id === selectedChat)?.messages.map((msg) => (
+                            <div
+                              key={msg.id}
+                              className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                              data-testid={`message-${msg.id}`}
+                            >
+                              <div className={`max-w-[80%] p-3 rounded-lg ${
+                                msg.sender === 'user' 
+                                  ? 'bg-primary text-primary-foreground' 
+                                  : 'bg-muted'
+                              }`}>
+                                <p className="text-sm">{msg.text}</p>
+                                <p className={`text-xs mt-1 ${
+                                  msg.sender === 'user' 
+                                    ? 'text-primary-foreground/70' 
+                                    : 'text-muted-foreground'
+                                }`}>
+                                  {new Date(msg.timestamp).toLocaleTimeString()}
+                                </p>
+                              </div>
                             </div>
                           ))}
                         </div>
                       </ScrollArea>
-                    </div>
-                  </div>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Type your message..."
+                          value={messageText}
+                          onChange={(e) => setMessageText(e.target.value)}
+                          data-testid="input-message"
+                        />
+                        <Button size="icon" data-testid="button-send-message">
+                          <Send className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
                 ) : (
-                  <div className="text-center py-12">
-                    <Shield className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-muted-foreground">No trust profile found</p>
-                  </div>
+                  <Card className="h-full flex items-center justify-center">
+                    <CardContent className="text-center">
+                      <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                      <p className="text-muted-foreground">Select a conversation to view messages</p>
+                    </CardContent>
+                  </Card>
                 )}
+              </div>
+            </div>
+          </div>
+        );
+
+      case "finances":
+        return (
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Finances & Escrows</h2>
+              <p className="text-muted-foreground">Track your deposits and payment status</p>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total Escrowed</p>
+                      <p className="text-2xl font-bold" data-testid="text-total-escrowed">
+                        ${escrows.reduce((acc, e) => acc + e.amount, 0).toLocaleString()}
+                      </p>
+                    </div>
+                    <DollarSign className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Active Escrows</p>
+                      <p className="text-2xl font-bold" data-testid="text-active-escrows">
+                        {escrows.filter(e => e.status === 'funded' || e.status === 'pending').length}
+                      </p>
+                    </div>
+                    <Clock className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Completed</p>
+                      <p className="text-2xl font-bold" data-testid="text-completed-escrows">
+                        {escrows.filter(e => e.status === 'released').length}
+                      </p>
+                    </div>
+                    <CheckCircle2 className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            
+            {loadingEscrows ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Loading escrows...
+              </div>
+            ) : escrows.length === 0 ? (
+              <div className="text-center py-12">
+                <DollarSign className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground mb-4">No escrows yet</p>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Create secure deposits through the Payments Agent
+                </p>
+                <Link href="/agents">
+                  <Button data-testid="button-create-escrow">
+                    Try Agent Demo
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {escrows.map((escrow) => (
+                  <Card key={escrow.id} className="hover-elevate" data-testid={`card-escrow-${escrow.id}`}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge
+                              variant={
+                                escrow.status === "funded" ? "default" :
+                                escrow.status === "pending" ? "outline" :
+                                "secondary"
+                              }
+                              data-testid={`badge-status-${escrow.id}`}
+                            >
+                              {escrow.status === "funded" && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                              {escrow.status === "pending" && <Clock className="h-3 w-3 mr-1" />}
+                              {escrow.status.toUpperCase()}
+                            </Badge>
+                            <span className="text-lg font-bold" data-testid={`text-amount-${escrow.id}`}>
+                              ${escrow.amount} {escrow.currency.toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="space-y-1 text-sm text-muted-foreground">
+                            <p className="flex items-center gap-2">
+                              <Building2 className="h-3 w-3" />
+                              Listing: {escrow.listingId}
+                            </p>
+                            <p className="flex items-center gap-2">
+                              <DollarSign className="h-3 w-3" />
+                              Channel: {escrow.channel.toUpperCase()}
+                            </p>
+                            <p className="text-xs">
+                              Created {new Date(escrow.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Link href={`/listing/${escrow.listingId}`}>
+                            <Button variant="outline" size="sm" data-testid={`button-view-listing-${escrow.id}`}>
+                              View Listing
+                            </Button>
+                          </Link>
+                          {escrow.status === "funded" && (
+                            <Button variant="secondary" size="sm" data-testid={`button-release-${escrow.id}`}>
+                              Request Release
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+
+      case "trust":
+        return (
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Trust Score</h2>
+              <p className="text-muted-foreground">Your reputation and verification status</p>
+            </div>
+            
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-2">Your Trust Score</p>
+                    <p className="text-5xl font-bold" data-testid="text-trust-score">
+                      85
+                      <span className="text-2xl text-muted-foreground">/100</span>
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-2">Good standing</p>
+                  </div>
+                  <Shield className="h-20 w-20 text-primary" />
+                </div>
               </CardContent>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="verification">
+            
+            <div className="grid grid-cols-3 gap-4">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    <p className="font-medium" data-testid="text-email-verified">Email Verified</p>
+                  </div>
+                  <p className="text-sm text-muted-foreground">demo_user@livva.com</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    <p className="font-medium" data-testid="text-phone-verified">Phone Verified</p>
+                  </div>
+                  <p className="text-sm text-muted-foreground">(415) ***-**89</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <AlertCircle className="h-5 w-5 text-amber-500" />
+                    <p className="font-medium" data-testid="text-id-pending">ID Pending</p>
+                  </div>
+                  <Button variant="outline" size="sm" className="mt-1" data-testid="button-upload-id">
+                    Upload ID
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+            
             <Card>
               <CardHeader>
-                <CardTitle>Move-In Verifications</CardTitle>
-                <CardDescription>
-                  Document verification for deposit releases
-                </CardDescription>
+                <CardTitle className="text-base">Recent Activity</CardTitle>
               </CardHeader>
               <CardContent>
-                {loadingVerifications ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Loading verification cases...
-                  </div>
-                ) : verificationCases.length === 0 ? (
-                  <div className="text-center py-12">
-                    <FileCheck className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-muted-foreground mb-4">No verification cases yet</p>
-                    <p className="text-sm text-muted-foreground">
-                      Verification cases are created when you create a deposit escrow
-                    </p>
-                  </div>
-                ) : (
-                  <ScrollArea className="h-[500px]">
-                    <div className="space-y-4">
-                      {verificationCases.map((verificationCase) => (
-                        <Card key={verificationCase.escrowId} className="hover-elevate">
-                          <CardContent className="p-4">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Badge variant={verificationCase.status === "approved" ? "default" : "outline"}>
-                                    {verificationCase.status}
-                                  </Badge>
-                                  <span className="font-medium">Escrow {verificationCase.escrowId.slice(0, 8)}</span>
-                                </div>
-                                <p className="text-sm text-muted-foreground mb-1">
-                                  Listing: {verificationCase.listingId}
-                                </p>
-                                <div className="flex gap-4 mt-3">
-                                  <div className="flex items-center gap-2">
-                                    <FileCheck className="h-4 w-4 text-primary" />
-                                    <span className="text-sm">
-                                      Tenant: {verificationCase.tenantUploads.length} uploads
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <FileCheck className="h-4 w-4 text-primary" />
-                                    <span className="text-sm">
-                                      Landlord: {verificationCase.landlordUploads.length} uploads
-                                    </span>
-                                  </div>
-                                </div>
-                                {verificationCase.decision && (
-                                  <div className="mt-3 p-2 bg-muted rounded-md">
-                                    <p className="text-xs font-medium mb-1">Decision: {verificationCase.decision.decision.replace(/_/g, ' ')}</p>
-                                    <p className="text-xs text-muted-foreground">{verificationCase.decision.reason}</p>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                      Confidence: {Math.round(verificationCase.decision.confidence * 100)}%
-                                    </p>
-                                  </div>
-                                )}
-                                {verificationCase.hasDispute && (
-                                  <Badge variant="destructive" className="mt-2">
-                                    Dispute Active
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg" data-testid="activity-email-verified">
+                    <div>
+                      <p className="font-medium text-sm">Email Verified</p>
+                      <p className="text-xs text-muted-foreground">First verification completed</p>
                     </div>
-                  </ScrollArea>
-                )}
+                    <Badge variant="default">+10</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg" data-testid="activity-profile-completed">
+                    <div>
+                      <p className="font-medium text-sm">Profile Completed</p>
+                      <p className="text-xs text-muted-foreground">Added profile information</p>
+                    </div>
+                    <Badge variant="default">+5</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg" data-testid="activity-phone-verified">
+                    <div>
+                      <p className="font-medium text-sm">Phone Verified</p>
+                      <p className="text-xs text-muted-foreground">Successfully verified phone number</p>
+                    </div>
+                    <Badge variant="default">+15</Badge>
+                  </div>
+                </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>
+        );
 
-          <TabsContent value="penalties">
+      case "verification":
+        return (
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Move-In Verification</h2>
+              <p className="text-muted-foreground">Document verification for deposit releases</p>
+            </div>
+            
             <Card>
-              <CardHeader>
-                <CardTitle>Penalties & Fees</CardTitle>
-                <CardDescription>
-                  Behavior-based micro-payments and penalties
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loadingPenalties ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Loading penalties...
-                  </div>
-                ) : penalties.length === 0 ? (
-                  <div className="text-center py-12">
-                    <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-muted-foreground mb-4">No penalties recorded</p>
-                    <p className="text-sm text-muted-foreground">
-                      Great! Keep up the good behavior
-                    </p>
-                  </div>
-                ) : (
-                  <ScrollArea className="h-[500px]">
-                    <div className="space-y-4">
-                      {penalties.map((penalty) => (
-                        <Card key={penalty.id} className="hover-elevate">
-                          <CardContent className="p-4">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Badge variant="destructive">
-                                    {penalty.eventType.replace(/_/g, ' ')}
-                                  </Badge>
-                                  <span className="font-medium">
-                                    {penalty.amount} {penalty.currency}
-                                  </span>
-                                </div>
-                                <p className="text-sm text-muted-foreground mb-1">
-                                  {penalty.reason}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  From: {penalty.fromEmail} → To: {penalty.toEmail}
-                                </p>
-                                <div className="flex items-center gap-2 mt-2">
-                                  <Badge variant={penalty.status === "completed" ? "default" : "outline"}>
-                                    {penalty.status}
-                                  </Badge>
-                                  <span className="text-xs text-muted-foreground">
-                                    {new Date(penalty.timestamp).toLocaleDateString()}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                )}
+              <CardContent className="p-12 text-center">
+                <FileCheck className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-lg font-medium mb-2">No verification cases yet</p>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Verification cases are created when landlords approve your deposit
+                </p>
+                <Link href="/agents">
+                  <Button data-testid="button-try-agents-verification">
+                    Try Agent Demo
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
+          </div>
+        );
+
+      case "penalties":
+        return (
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Penalties</h2>
+              <p className="text-muted-foreground">Track any penalty cases or disputes</p>
+            </div>
+            
+            <Card>
+              <CardContent className="p-12 text-center">
+                <CheckCircle2 className="h-16 w-16 mx-auto mb-4 text-green-600" />
+                <p className="text-lg font-medium mb-2">No penalties</p>
+                <p className="text-sm text-muted-foreground">
+                  You have a clean record with no active penalty cases
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <SidebarProvider style={sidebarStyle}>
+      <div className="flex h-screen w-full">
+        <Sidebar>
+          <SidebarHeader className="border-b p-4">
+            <Link href="/">
+              <div className="flex items-center gap-2 cursor-pointer" data-testid="link-home">
+                <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
+                  <Home className="h-5 w-5 text-primary-foreground" />
+                </div>
+                <span className="font-bold text-lg">Livva</span>
+              </div>
+            </Link>
+          </SidebarHeader>
+          
+          <SidebarContent>
+            <SidebarGroup>
+              <SidebarGroupLabel>My Portal</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {menuItems.map((item) => (
+                    <SidebarMenuItem key={item.id}>
+                      <SidebarMenuButton asChild isActive={activeTab === item.id}>
+                        <a href={item.href} data-testid={`sidebar-${item.id}`}>
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.label}</span>
+                        </a>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </SidebarContent>
+        </Sidebar>
+
+        <div className="flex flex-col flex-1">
+          <header className="flex items-center justify-between p-4 border-b bg-background">
+            <div className="flex items-center gap-4">
+              <SidebarTrigger data-testid="button-sidebar-toggle" />
+              <div className="flex items-center gap-3">
+                <Avatar className="h-10 w-10">
+                  <AvatarFallback className="bg-primary text-primary-foreground">
+                    <User className="h-5 w-5" />
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="font-semibold" data-testid="text-user-name">Demo User</p>
+                  <p className="text-sm text-muted-foreground" data-testid="text-user-email">demo_user@livva.com</p>
+                </div>
+              </div>
+            </div>
+            <Link href="/">
+              <Button variant="outline" data-testid="button-back-home">
+                <Home className="h-4 w-4 mr-2" />
+                Back to Home
+              </Button>
+            </Link>
+          </header>
+
+          <main className="flex-1 overflow-auto p-6">
+            {renderContent()}
+          </main>
+        </div>
       </div>
-    </div>
+    </SidebarProvider>
   );
 }
