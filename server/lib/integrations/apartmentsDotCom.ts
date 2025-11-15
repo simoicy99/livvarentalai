@@ -1,72 +1,7 @@
 import type { Listing } from "../../../shared/types";
+import { generateMockListings } from "./mockListingGenerator";
 
 export async function getApartmentsListings(): Promise<Listing[]> {
   await new Promise(resolve => setTimeout(resolve, 200));
-
-  return [
-    {
-      id: "apartments_1",
-      title: "Hayes Valley Studio",
-      description: "Efficient studio layout with Murphy bed, modern kitchenette, and in-unit laundry. Great location near transit and cafes.",
-      price: 2400,
-      address: "321 Hayes Street",
-      city: "San Francisco",
-      state: "CA",
-      imageUrl: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800",
-      source: "apartments",
-      bedrooms: 0,
-      bathrooms: 1,
-      sqft: 500,
-      availableFrom: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-      createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      id: "apartments_2",
-      title: "Marina 2BR with Bay Views",
-      description: "Bright apartment with private balcony overlooking the Marina. Includes dishwasher, AC, and secure bike storage. Walking distance to Crissy Field.",
-      price: 4800,
-      address: "654 Marina Boulevard",
-      city: "San Francisco",
-      state: "CA",
-      imageUrl: "https://images.unsplash.com/photo-1460317442991-0ec209397118?w=800",
-      source: "apartments",
-      bedrooms: 2,
-      bathrooms: 2,
-      sqft: 1100,
-      availableFrom: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
-      createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      id: "apartments_3",
-      title: "Castro Garden Apartment",
-      description: "Ground floor unit with direct patio access and garden view. Pet-friendly building with on-site management. Near shops and nightlife.",
-      price: 3100,
-      address: "987 Castro Street",
-      city: "San Francisco",
-      state: "CA",
-      imageUrl: "https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=800",
-      source: "apartments",
-      bedrooms: 1,
-      bathrooms: 1,
-      sqft: 750,
-      availableFrom: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
-      createdAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      id: "apartments_4",
-      title: "North Beach Victorian Flat",
-      description: "Newly renovated unit in historic building combining original charm with modern amenities. Hardwood floors throughout. Steps from Washington Square Park.",
-      price: 3600,
-      address: "147 Columbus Avenue",
-      city: "San Francisco",
-      state: "CA",
-      imageUrl: "https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800",
-      source: "apartments",
-      bedrooms: 1,
-      bathrooms: 1,
-      sqft: 850,
-      availableFrom: new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString(),
-      createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-  ];
+  return generateMockListings(18, "apartments");
 }

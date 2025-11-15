@@ -1,6 +1,7 @@
 import type { Listing, FeedResponse } from "../../../shared/types";
 import { getZillowListings } from "../integrations/zillow";
 import { getApartmentsListings } from "../integrations/apartmentsDotCom";
+import { generateMockListings } from "../integrations/mockListingGenerator";
 
 export interface GetFeedOptions {
   page: number;
@@ -11,56 +12,7 @@ export interface GetFeedOptions {
 }
 
 function getInternalListings(): Listing[] {
-  return [
-    {
-      id: "livva_1",
-      title: "Sunny Mission District Loft",
-      description: "Bright corner loft with wrap-around windows and city views. Features central AC, in-unit washer/dryer, and modern appliances. Walking distance to Dolores Park.",
-      price: 3200,
-      address: "2845 Mission Street",
-      city: "San Francisco",
-      state: "CA",
-      imageUrl: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800",
-      source: "internal",
-      bedrooms: 1,
-      bathrooms: 1,
-      sqft: 850,
-      availableFrom: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(),
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "livva_2",
-      title: "Noe Valley Family Home",
-      description: "Spacious Victorian with fenced backyard, perfect for families. Close to parks, schools, and 24th Street shops. Recently updated kitchen.",
-      price: 5800,
-      address: "567 Sanchez Street",
-      city: "San Francisco",
-      state: "CA",
-      imageUrl: "https://images.unsplash.com/photo-1558036117-15d82a90b9b1?w=800",
-      source: "internal",
-      bedrooms: 3,
-      bathrooms: 2,
-      sqft: 1800,
-      availableFrom: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
-      createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      id: "livva_3",
-      title: "SoMa Modern Studio",
-      description: "Efficient studio in modern building with 24/7 gym, rooftop deck, and concierge service. Steps from BART and tech shuttle stops.",
-      price: 2600,
-      address: "890 Folsom Street",
-      city: "San Francisco",
-      state: "CA",
-      imageUrl: "https://images.unsplash.com/photo-1536376072261-38c75010e6c9?w=800",
-      source: "internal",
-      bedrooms: 0,
-      bathrooms: 1,
-      sqft: 550,
-      availableFrom: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
-      createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-  ];
+  return generateMockListings(20, "internal");
 }
 
 export async function getFeedListings(options: GetFeedOptions): Promise<Listing[]> {
