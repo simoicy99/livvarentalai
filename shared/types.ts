@@ -37,3 +37,47 @@ export interface CreateDepositResponse {
   checkoutUrl: string;
   expiresAt: string;
 }
+
+export interface TenantProfile {
+  id: string;
+  name: string;
+  email: string;
+  budgetMin: number;
+  budgetMax: number;
+  preferredCities: string[];
+  bedrooms?: number;
+  moveInDate?: string;
+}
+
+export type EscrowStatus = "pending" | "funded" | "released" | "refunded" | "failed";
+export type PaymentChannel = "locus" | "stripe";
+
+export interface EscrowRecord {
+  id: string;
+  listingId: string;
+  tenantEmail: string;
+  channel: PaymentChannel;
+  amount: number;
+  currency: string;
+  status: EscrowStatus;
+  locusTransactionId?: string;
+  locusEscrowId?: string;
+  stripeSessionId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type MessageRole = "tenant" | "landlord" | "agent";
+
+export interface ConversationMessage {
+  id: string;
+  role: MessageRole;
+  text: string;
+  createdAt: string;
+}
+
+export interface MatchResult {
+  listing: Listing;
+  score: number;
+  reasons: string[];
+}
