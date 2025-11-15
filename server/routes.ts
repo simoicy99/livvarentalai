@@ -14,8 +14,32 @@ import { getTrustProfile, getAllTrustProfiles, recordEvent as recordTrustEvent }
 import { getAllVerificationCases, getVerificationCase, addUpload } from "./lib/agent/moveInVerificationAgent";
 import { getPenaltyEvents, applyPenalty as applyBehaviorPenalty } from "./lib/agent/badBehaviorAgent";
 import type { CreateDepositParams, TenantProfile } from "../shared/types";
+import { clerkClient } from "./lib/clerk";
 
 export function registerRoutes(app: Express): Server {
+  app.get("/api/auth/user", async (req, res) => {
+    try {
+      const { userId } = req.auth || {};
+      
+      if (!userId) {
+        return res.json(null);
+      }
+
+      const user = await clerkClient.users.getUser(userId);
+      
+      res.json({
+        id: user.id,
+        email: user.emailAddresses[0]?.emailAddress,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        imageUrl: user.imageUrl,
+      });
+    } catch (error: any) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ error: "Failed to fetch user" });
+    }
+  });
+
   app.get("/api/listing/:id", async (req, res) => {
     try {
       const listingId = req.params.id;
