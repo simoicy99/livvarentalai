@@ -9,6 +9,7 @@ import { matchListingsToTenant } from "./lib/agent/matchAgent";
 import { generateInitialMessage, generateFollowUpMessage } from "./lib/agent/communicationAgent";
 import { createDeposit, checkDepositStatus, releaseDeposit, releaseDepositWithDetails, getEscrowsByTenant } from "./lib/agent/paymentsAgent";
 import { listEscrowsForTenant } from "./lib/services/escrowService";
+import { createRentPayment, listPaymentsForTenant } from "./lib/services/rentPaymentService";
 import { createLocusMCPPayment, checkLocusMCPPaymentStatus } from "./lib/agent/locusMCPAgent";
 import { getTrustProfile, getAllTrustProfiles, recordEvent as recordTrustEvent } from "./lib/agent/trustScoreAgent";
 import { getAllVerificationCases, getVerificationCase, addUpload } from "./lib/agent/moveInVerificationAgent";
@@ -258,44 +259,76 @@ export function registerRoutes(app: Express): Server {
 
   app.post("/api/rent/payment", async (req, res) => {
     try {
-      const { rentalId, amount, currency, tenantEmail } = req.body;
+      const { listingId, listingTitle, landlordEmail, landlordName, amount: rawAmount, currency, tenantEmail, period } = req.body;
 
-      if (!rentalId || !amount || !tenantEmail) {
+      if (!listingId || !listingTitle || rawAmount == null || !tenantEmail) {
         return res.status(400).json({ 
-          error: "Missing required fields: rentalId, amount, tenantEmail" 
+          error: "Missing required fields: listingId, listingTitle, amount, tenantEmail" 
         });
       }
 
-      if (amount <= 0) {
-        return res.status(400).json({ error: "Amount must be greater than 0" });
+      const amount = Number(rawAmount);
+      if (!isFinite(amount) || amount <= 0) {
+        return res.status(400).json({ error: "Amount must be a valid positive number" });
       }
 
       // simulate stripe payment processing
       const paymentIntentId = `pi_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
-      // record trust event for on-time payment
-      await recordTrustEvent({
-        userId: tenantEmail,
-        eventType: "on_time_rent_payment",
-        metadata: {
-          rentalId,
-          amount,
-          currency,
-          paymentIntentId,
-        },
+      console.log(`Processing rent payment: ${tenantEmail} paying $${amount} for ${listingTitle}`);
+
+      // persist payment record
+      const payment = createRentPayment({
+        listingId,
+        listingTitle,
+        landlordEmail,
+        landlordName,
+        tenantEmail,
+        amount,
+        currency: currency || "usd",
+        paymentIntentId,
+        period,
       });
+
+      // record trust event for on-time payment
+      try {
+        recordTrustEvent(tenantEmail, 'ON_TIME_RENT_PAYMENT', `Rent payment of $${amount} for ${listingTitle}`);
+        console.log(`Trust score updated for ${tenantEmail} (+10 points)`);
+      } catch (trustError) {
+        console.error("Failed to update trust score:", trustError);
+        // continue - payment succeeded even if trust update failed
+      }
+
+      console.log(`Rent payment successful: ${paymentIntentId}, payment ID: ${payment.id}`);
 
       res.json({
         success: true,
+        paymentId: payment.id,
         paymentIntentId,
         amount,
-        currency,
+        currency: payment.currency,
         status: "succeeded",
         message: "Payment processed successfully. Your trust score has been improved!",
       });
     } catch (error: any) {
       console.error("Error processing rent payment:", error);
       res.status(500).json({ error: error.message || "Failed to process payment" });
+    }
+  });
+
+  app.get("/api/rent/payments/:tenantEmail", async (req, res) => {
+    try {
+      const { tenantEmail } = req.params;
+
+      if (!tenantEmail) {
+        return res.status(400).json({ error: "Missing tenantEmail" });
+      }
+
+      const payments = listPaymentsForTenant(tenantEmail);
+      res.json(payments);
+    } catch (error: any) {
+      console.error("Error listing rent payments:", error);
+      res.status(500).json({ error: "Failed to list rent payments" });
     }
   });
 

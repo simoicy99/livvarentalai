@@ -24,7 +24,7 @@ const EVENT_SCORE_DELTAS: Record<string, number> = {
   CLEAN_MOVE_IN: 5,
   VERIFIED_IDENTITY: 10,
   PAYMENT_ON_TIME: 3,
-  on_time_rent_payment: 10,
+  ON_TIME_RENT_PAYMENT: 10,
   POSITIVE_REVIEW: 4,
   LATE_CANCEL: -8,
   NO_SHOW: -15,

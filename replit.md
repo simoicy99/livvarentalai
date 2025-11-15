@@ -16,6 +16,11 @@ Livva is a room rental aggregator with vibrant orange branding, featuring aggreg
   - **Matches**: AI-scored tenant-listing pairs (currently empty, demo ready)
   - **Chat Logs**: Conversation history (placeholder for future messaging)
   - **Finances**: Escrow management and deposit tracking
+  - **Trust Score**: Profile with verification status and event history
+  - **Move-In Verification**: Checklist-based verification with document tracking
+  - **Penalties**: Dispute and penalty tracking with resolution management
+  - **Pay Rent**: Stripe-powered rent payments that improve trust scores
+  - **Locus Agent**: Natural language interface for payment operations
 - **Multi-agent architecture with 4 specialized agents:**
   - **Match Agent**: Scores and ranks listings based on tenant preferences (budget, city, bedrooms)
   - **Communication Agent**: Generates personalized messages for tenant-landlord communication

@@ -361,7 +361,8 @@ export default function Portal() {
   const [locusResponse, setLocusResponse] = useState("");
   const [locusLoading, setLocusLoading] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
-  const [selectedRental, setSelectedRental] = useState("");
+  const [selectedListingId, setSelectedListingId] = useState("");
+  const [selectedListingTitle, setSelectedListingTitle] = useState("");
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const { toast} = useToast();
 
@@ -381,6 +382,11 @@ export default function Portal() {
   const { data: fetchedMatches = [], isLoading: loadingMatches } = useQuery<MatchResult[]>({
     queryKey: ["/api/matches", userId],
     enabled: !!userId,
+  });
+
+  const { data: fetchedPayments = [], isLoading: loadingPayments } = useQuery<typeof demoRentPayments>({
+    queryKey: ["/api/rent/payments", userEmail],
+    enabled: !!userEmail,
   });
 
   const deleteSavedMutation = useMutation({
@@ -405,6 +411,7 @@ export default function Portal() {
   const savedListings = fetchedSaved.length > 0 ? fetchedSaved : demoSavedListings;
   const escrows = fetchedEscrows.length > 0 ? fetchedEscrows : demoEscrows;
   const matches = fetchedMatches.length > 0 ? fetchedMatches : demoMatches;
+  const rentPayments = fetchedPayments.length > 0 ? fetchedPayments : demoRentPayments;
 
   const handleLocusPrompt = async () => {
     if (!locusPrompt.trim()) {
@@ -450,7 +457,7 @@ export default function Portal() {
   };
 
   const handleRentPayment = async () => {
-    if (!selectedRental || !paymentAmount) {
+    if (!selectedListingId || !paymentAmount) {
       toast({
         title: "Missing information",
         description: "Please select a rental and enter payment amount",
@@ -459,33 +466,55 @@ export default function Portal() {
       return;
     }
 
+    const amount = parseFloat(paymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({
+        title: "Invalid amount",
+        description: "Please enter a valid payment amount greater than 0",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setPaymentProcessing(true);
+
+    // get landlord details from selected payment
+    const selectedPayment = rentPayments.find(r => r.listingId === selectedListingId && r.status === 'upcoming');
 
     try {
       const response = await fetch("/api/rent/payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          rentalId: selectedRental,
-          amount: parseFloat(paymentAmount),
+          listingId: selectedListingId,
+          listingTitle: selectedListingTitle,
+          amount,
           currency: "usd",
           tenantEmail: userEmail,
+          landlordName: selectedPayment?.landlordName || "Landlord",
+          landlordEmail: selectedPayment?.landlordEmail,
+          period: selectedPayment?.period || new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to process payment");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to process payment");
       }
 
       const data = await response.json();
       
+      // invalidate payment history cache
+      queryClient.invalidateQueries({ queryKey: ["/api/rent/payments", userEmail] });
+
       toast({
         title: "Payment successful!",
-        description: `Your rent payment of $${paymentAmount} has been processed. Your trust score has been improved!`,
+        description: `Your rent payment of $${amount.toFixed(2)} has been processed. Your trust score has been improved!`,
       });
 
       setPaymentAmount("");
-      setSelectedRental("");
+      setSelectedListingId("");
+      setSelectedListingTitle("");
     } catch (error) {
       console.error("Payment error:", error);
       toast({
@@ -1268,11 +1297,13 @@ export default function Portal() {
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Select Rental</label>
                     <select
-                      value={selectedRental}
+                      value={selectedListingId}
                       onChange={(e) => {
-                        setSelectedRental(e.target.value);
-                        const selected = demoRentPayments.find(r => r.id === e.target.value);
-                        if (selected && selected.status === 'upcoming') {
+                        const listingId = e.target.value;
+                        setSelectedListingId(listingId);
+                        const selected = rentPayments.find(r => r.listingId === listingId && r.status === 'upcoming');
+                        if (selected) {
+                          setSelectedListingTitle(selected.listingTitle);
                           setPaymentAmount(selected.amount.toString());
                         }
                       }}
@@ -1280,8 +1311,8 @@ export default function Portal() {
                       data-testid="select-rental"
                     >
                       <option value="">Choose a rental...</option>
-                      {demoRentPayments.filter(r => r.status === 'upcoming').map((rent) => (
-                        <option key={rent.id} value={rent.id}>
+                      {rentPayments.filter(r => r.status === 'upcoming').map((rent) => (
+                        <option key={rent.id} value={rent.listingId}>
                           {rent.listingTitle} - {rent.period} (${rent.amount})
                         </option>
                       ))}
@@ -1302,7 +1333,7 @@ export default function Portal() {
 
                   <Button
                     onClick={handleRentPayment}
-                    disabled={paymentProcessing || !selectedRental || !paymentAmount}
+                    disabled={paymentProcessing || !selectedListingId || !paymentAmount}
                     className="w-full"
                     data-testid="button-pay-rent"
                   >
@@ -1336,7 +1367,7 @@ export default function Portal() {
                 <CardContent>
                   <ScrollArea className="h-[400px]">
                     <div className="space-y-3">
-                      {demoRentPayments.map((payment) => (
+                      {rentPayments.map((payment) => (
                         <div
                           key={payment.id}
                           className="p-3 border rounded-lg hover-elevate"
