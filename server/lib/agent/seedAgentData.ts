@@ -3,9 +3,9 @@ import { seedDemoPenalties } from './badBehaviorAgent';
 import { createVerificationCase, addUpload } from './moveInVerificationAgent';
 import { createEscrowRecord } from '../services/escrowService';
 
-export function seedAgentData(): void {
+export async function seedAgentData(): Promise<void> {
   seedDemoProfiles();
-  seedDemoPenalties();
+  await seedDemoPenalties();
 
   const demoEscrow = createEscrowRecord({
     listingId: 'zillow_1',

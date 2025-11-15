@@ -5,7 +5,7 @@ import { seedAgentData } from "./lib/agent/seedAgentData";
 
 const app = express();
 
-seedAgentData();
+await seedAgentData();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));

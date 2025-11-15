@@ -123,6 +123,17 @@ export function addUpload(escrowId: string, upload: VerificationUpload): void {
   }
 }
 
+export function updateVerificationDecision(escrowId: string, decision: VerificationDecision): void {
+  const verificationCase = verificationCases.get(escrowId);
+  if (!verificationCase) {
+    throw new Error(`Verification case not found: ${escrowId}`);
+  }
+
+  verificationCase.decision = decision;
+  verificationCase.status = decision.decision === 'approve_full' ? 'approved' : 
+                            decision.decision === 'approve_partial' ? 'approved' : 'rejected';
+}
+
 export function getVerificationCase(escrowId: string): VerificationCase | undefined {
   return verificationCases.get(escrowId);
 }

@@ -7,7 +7,7 @@ import { getFeedPage } from "./lib/agent/agentService";
 import { createDepositSession } from "./lib/integrations/locus";
 import { matchListingsToTenant } from "./lib/agent/matchAgent";
 import { generateInitialMessage, generateFollowUpMessage } from "./lib/agent/communicationAgent";
-import { createDeposit, checkDepositStatus, releaseDeposit, getEscrowsByTenant } from "./lib/agent/paymentsAgent";
+import { createDeposit, checkDepositStatus, releaseDeposit, releaseDepositWithDetails, getEscrowsByTenant } from "./lib/agent/paymentsAgent";
 import { listEscrowsForTenant } from "./lib/services/escrowService";
 import { createLocusMCPPayment, checkLocusMCPPaymentStatus } from "./lib/agent/locusMCPAgent";
 import { getTrustProfile, getAllTrustProfiles, recordEvent as recordTrustEvent } from "./lib/agent/trustScoreAgent";
@@ -150,18 +150,19 @@ export function registerRoutes(app: Express): Server {
   // escrow endpoints using payments agent
   app.post("/api/escrow/create", async (req, res) => {
     try {
-      const { listingId, tenantEmail, amount, currency, channelPreference } = req.body;
+      const { listingId, tenantEmail, landlordEmail, baseAmount, currency, channelPreference } = req.body;
 
-      if (!listingId || !tenantEmail || !amount) {
+      if (!listingId || !tenantEmail || !baseAmount) {
         return res.status(400).json({ 
-          error: "Missing required fields: listingId, tenantEmail, amount" 
+          error: "Missing required fields: listingId, tenantEmail, baseAmount" 
         });
       }
 
       const result = await createDeposit({
         listingId,
         tenantEmail,
-        amount,
+        landlordEmail,
+        baseAmount,
         currency,
         channelPreference,
       });
@@ -202,13 +203,13 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ error: "Missing escrowId" });
       }
 
-      const escrow = await releaseDeposit(escrowId);
+      const result = await releaseDepositWithDetails(escrowId);
 
-      if (!escrow) {
+      if (!result) {
         return res.status(404).json({ error: "Escrow not found" });
       }
 
-      res.json({ escrow });
+      res.json(result);
     } catch (error: any) {
       console.error("Error releasing escrow:", error);
       res.status(500).json({ error: "Failed to release escrow" });

@@ -52,15 +52,29 @@ type TrustProfile = {
   verifiedEmail: boolean;
 };
 
+type VerificationUpload = {
+  type: string;
+  url: string;
+  uploadedBy: string;
+  timestamp: string;
+  description?: string;
+};
+
 type VerificationCase = {
   escrowId: string;
   listingId: string;
   tenantEmail: string;
   landlordEmail: string;
-  tenantUploads: number;
-  landlordUploads: number;
+  tenantUploads: VerificationUpload[];
+  landlordUploads: VerificationUpload[];
   hasDispute: boolean;
   status: string;
+  decision?: {
+    decision: string;
+    reason: string;
+    confidence: number;
+    partialAmount?: number;
+  };
 };
 
 type Penalty = {
@@ -559,16 +573,25 @@ export default function Portal() {
                                   <div className="flex items-center gap-2">
                                     <FileCheck className="h-4 w-4 text-primary" />
                                     <span className="text-sm">
-                                      Tenant: {verificationCase.tenantUploads} uploads
+                                      Tenant: {verificationCase.tenantUploads.length} uploads
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <FileCheck className="h-4 w-4 text-primary" />
                                     <span className="text-sm">
-                                      Landlord: {verificationCase.landlordUploads} uploads
+                                      Landlord: {verificationCase.landlordUploads.length} uploads
                                     </span>
                                   </div>
                                 </div>
+                                {verificationCase.decision && (
+                                  <div className="mt-3 p-2 bg-muted rounded-md">
+                                    <p className="text-xs font-medium mb-1">Decision: {verificationCase.decision.decision.replace(/_/g, ' ')}</p>
+                                    <p className="text-xs text-muted-foreground">{verificationCase.decision.reason}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      Confidence: {Math.round(verificationCase.decision.confidence * 100)}%
+                                    </p>
+                                  </div>
+                                )}
                                 {verificationCase.hasDispute && (
                                   <Badge variant="destructive" className="mt-2">
                                     Dispute Active

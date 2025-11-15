@@ -1,7 +1,7 @@
 import type { EscrowRecord, PaymentChannel } from "../../../shared/types";
 import { createEscrowRecord, getEscrowById, updateEscrowStatus, getAllEscrows } from "../services/escrowService";
 import { createDepositSession as createLocusDeposit } from "../integrations/locus";
-import { evaluateMoveIn, getVerificationCase, createVerificationCase } from "./moveInVerificationAgent";
+import { evaluateMoveIn, getVerificationCase, createVerificationCase, updateVerificationDecision } from "./moveInVerificationAgent";
 import { calculateDepositMultiplier, recordEvent as recordTrustEvent } from "./trustScoreAgent";
 import Stripe from "stripe";
 
@@ -150,14 +150,78 @@ export async function releaseDeposit(escrowId: string): Promise<EscrowRecord | n
     hasDispute: verificationCase.hasDispute,
   });
 
+  updateVerificationDecision(escrowId, decision);
+
   if (decision.decision === 'approve_full') {
     recordTrustEvent(escrow.tenantEmail, 'CLEAN_MOVE_IN', 'Successful move-in verification');
-    return updateEscrowStatus(escrowId, "released");
+    const released = await updateEscrowStatus(escrowId, "released");
+    return released;
   } else if (decision.decision === 'approve_partial') {
-    return updateEscrowStatus(escrowId, "partial_released");
+    recordTrustEvent(escrow.tenantEmail, 'PAYMENT_ON_TIME', 'Partial deposit release approved');
+    const partialReleased = await updateEscrowStatus(escrowId, "partial_released");
+    return partialReleased;
   } else {
-    return updateEscrowStatus(escrowId, "refunded");
+    recordTrustEvent(escrow.tenantEmail, 'DISPUTE_LOST', decision.reason);
+    const refunded = await updateEscrowStatus(escrowId, "refunded");
+    return refunded;
   }
+}
+
+export interface ReleaseResult extends EscrowRecord {
+  verificationDecision?: {
+    decision: string;
+    reason: string;
+    confidence: number;
+    partialAmount?: number;
+  };
+}
+
+export async function releaseDepositWithDetails(escrowId: string): Promise<ReleaseResult | null> {
+  const escrow = getEscrowById(escrowId);
+  if (!escrow) {
+    return null;
+  }
+
+  const verificationCase = getVerificationCase(escrowId);
+  if (!verificationCase) {
+    console.warn(`No verification case found for escrow ${escrowId}, releasing anyway`);
+    const released = await updateEscrowStatus(escrowId, "released");
+    return released;
+  }
+
+  const decision = await evaluateMoveIn({
+    escrowId,
+    tenantUploads: verificationCase.tenantUploads,
+    landlordUploads: verificationCase.landlordUploads,
+    hasDispute: verificationCase.hasDispute,
+  });
+
+  updateVerificationDecision(escrowId, decision);
+
+  let released: EscrowRecord | null = null;
+
+  if (decision.decision === 'approve_full') {
+    recordTrustEvent(escrow.tenantEmail, 'CLEAN_MOVE_IN', 'Successful move-in verification');
+    released = await updateEscrowStatus(escrowId, "released");
+  } else if (decision.decision === 'approve_partial') {
+    recordTrustEvent(escrow.tenantEmail, 'PAYMENT_ON_TIME', 'Partial deposit release approved');
+    released = await updateEscrowStatus(escrowId, "partial_released");
+  } else {
+    recordTrustEvent(escrow.tenantEmail, 'DISPUTE_LOST', decision.reason);
+    released = await updateEscrowStatus(escrowId, "refunded");
+  }
+
+  if (!released) return null;
+
+  return {
+    ...released,
+    verificationDecision: {
+      decision: decision.decision,
+      reason: decision.reason,
+      confidence: decision.confidence,
+      partialAmount: decision.partialAmount,
+    },
+  };
 }
 
 export function getEscrowsByTenant(tenantEmail: string): EscrowRecord[] {
