@@ -7,55 +7,56 @@ export interface GetFeedOptions {
   pageSize: number;
   cityFilter?: string;
   maxPrice?: number;
+  searchQuery?: string;
 }
 
 function getInternalListings(): Listing[] {
   return [
     {
       id: "livva_1",
-      title: "Sunny Corner Unit",
-      description: "Bright corner apartment with wrap-around windows and city views. Features include central AC, in-unit washer/dryer, and modern appliances.",
-      price: 2100,
-      address: "234 Main Street",
+      title: "Sunny Mission District Loft",
+      description: "Bright corner loft with wrap-around windows and city views. Features central AC, in-unit washer/dryer, and modern appliances. Walking distance to Dolores Park.",
+      price: 3200,
+      address: "2845 Mission Street",
       city: "San Francisco",
       state: "CA",
       imageUrl: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800",
       source: "internal",
       bedrooms: 1,
       bathrooms: 1,
-      sqft: 750,
+      sqft: 850,
       availableFrom: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(),
       createdAt: new Date().toISOString(),
     },
     {
       id: "livva_2",
-      title: "Pet-Friendly Duplex",
-      description: "Spacious duplex with fenced yard, perfect for pet owners. Close to dog parks and walking trails.",
-      price: 2600,
-      address: "567 Elm Drive",
-      city: "Portland",
-      state: "OR",
+      title: "Noe Valley Family Home",
+      description: "Spacious Victorian with fenced backyard, perfect for families. Close to parks, schools, and 24th Street shops. Recently updated kitchen.",
+      price: 5800,
+      address: "567 Sanchez Street",
+      city: "San Francisco",
+      state: "CA",
       imageUrl: "https://images.unsplash.com/photo-1558036117-15d82a90b9b1?w=800",
       source: "internal",
-      bedrooms: 2,
-      bathrooms: 1.5,
-      sqft: 1100,
+      bedrooms: 3,
+      bathrooms: 2,
+      sqft: 1800,
       availableFrom: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
       createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
     },
     {
       id: "livva_3",
-      title: "Downtown Studio with Gym",
-      description: "Efficient studio in modern building with 24/7 gym, rooftop deck, and concierge service. Steps from metro.",
-      price: 1800,
-      address: "890 Commerce Way",
-      city: "Seattle",
-      state: "WA",
+      title: "SoMa Modern Studio",
+      description: "Efficient studio in modern building with 24/7 gym, rooftop deck, and concierge service. Steps from BART and tech shuttle stops.",
+      price: 2600,
+      address: "890 Folsom Street",
+      city: "San Francisco",
+      state: "CA",
       imageUrl: "https://images.unsplash.com/photo-1536376072261-38c75010e6c9?w=800",
       source: "internal",
       bedrooms: 0,
       bathrooms: 1,
-      sqft: 500,
+      sqft: 550,
       availableFrom: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
       createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -109,7 +110,7 @@ export async function getFeedListings(options: GetFeedOptions): Promise<Listing[
 export async function getFeedPage(
   page: number,
   pageSize: number,
-  filters?: { cityFilter?: string; maxPrice?: number }
+  filters?: { cityFilter?: string; maxPrice?: number; searchQuery?: string }
 ): Promise<FeedResponse> {
   const options: GetFeedOptions = {
     page,
@@ -124,6 +125,18 @@ export async function getFeedPage(
   ]);
 
   let allListings = [...internalListings, ...zillowListings, ...apartmentsListings];
+
+  if (filters?.searchQuery) {
+    const queryLower = filters.searchQuery.toLowerCase();
+    allListings = allListings.filter(listing => {
+      return (
+        listing.title.toLowerCase().includes(queryLower) ||
+        listing.description.toLowerCase().includes(queryLower) ||
+        listing.city.toLowerCase().includes(queryLower) ||
+        listing.address.toLowerCase().includes(queryLower)
+      );
+    });
+  }
 
   if (filters?.cityFilter) {
     const cityLower = filters.cityFilter.toLowerCase();

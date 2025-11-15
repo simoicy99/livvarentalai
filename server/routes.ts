@@ -5,16 +5,36 @@ import { createDepositSession } from "./lib/integrations/locus";
 import type { CreateDepositParams } from "../shared/types";
 
 export function registerRoutes(app: Express): Server {
+  app.get("/api/listing/:id", async (req, res) => {
+    try {
+      const listingId = req.params.id;
+      
+      const feedResult = await getFeedPage(1, 100, {});
+      const listing = feedResult.items.find(l => l.id === listingId);
+      
+      if (!listing) {
+        return res.status(404).json({ error: "Listing not found" });
+      }
+      
+      res.json(listing);
+    } catch (error: any) {
+      console.error("Error fetching listing:", error);
+      res.status(500).json({ error: "Failed to fetch listing" });
+    }
+  });
+
   app.get("/api/feed", async (req, res) => {
     try {
       const page = Math.max(1, parseInt(req.query.page as string) || 1);
       const pageSize = Math.max(1, Math.min(50, parseInt(req.query.pageSize as string) || 20));
       const cityFilter = req.query.city as string | undefined;
       const maxPrice = req.query.maxPrice ? parseFloat(req.query.maxPrice as string) : undefined;
+      const searchQuery = req.query.q as string | undefined;
 
       const result = await getFeedPage(page, pageSize, {
         cityFilter,
         maxPrice,
+        searchQuery,
       });
 
       res.json(result);

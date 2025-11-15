@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import type { Listing, CreateDepositResponse } from "../../../shared/types";
 import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,7 @@ const sourceBadgeText: Record<string, string> = {
 
 export function FeedCard({ listing }: FeedCardProps) {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   const createDepositMutation = useMutation<CreateDepositResponse, Error, void>({
     mutationFn: async () => {
@@ -107,7 +109,7 @@ export function FeedCard({ listing }: FeedCardProps) {
         <Button
           variant="outline"
           className="flex-1"
-          onClick={() => console.log("View details:", listing.id)}
+          onClick={() => setLocation(`/listing/${listing.id}`)}
           data-testid={`button-details-${listing.id}`}
         >
           View details

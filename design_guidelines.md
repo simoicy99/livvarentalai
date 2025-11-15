@@ -2,15 +2,24 @@
 
 ## Design Approach
 
+**Vibrant Orange Theme**: Energetic and modern aesthetic that conveys warmth, trust, and action-oriented efficiency
+
 **Reference-Based Strategy**: Drawing from industry leaders that align with Livva's core values:
 - **Airbnb**: Card-based property displays, trust indicators, clean booking flows
 - **Linear**: Minimal dashboard aesthetics, subtle animations, excellent information hierarchy
 - **Stripe**: Payment interfaces, trust badges, professional data presentation
 
+**Color System**:
+- Primary: Vibrant Orange (HSL 25 95% 55%) - CTAs, links, highlights
+- Accent: Deep Orange-Red (HSL 15 85% 60%) - Secondary actions, badges
+- Secondary: Warm Cream (HSL 35 90% 92%) - Backgrounds, soft emphasis
+- Neutral: Warm grays with slight orange tint for hierarchy
+
 **Design Principles**:
 1. Trust through transparency - clear verification states, visible agent activity
 2. Efficiency for power users - quick actions, keyboard shortcuts for dashboards
 3. Warmth in automation - human-centric language despite AI-driven processes
+4. Energy and optimism - vibrant orange conveys action and opportunity
 
 ## Typography
 

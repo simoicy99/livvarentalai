@@ -4,7 +4,11 @@ import type { Listing, FeedResponse } from "../../../shared/types";
 import { FeedCard } from "./FeedCard";
 import { Button } from "@/components/ui/button";
 
-export function FeedGrid() {
+interface FeedGridProps {
+  searchQuery?: string;
+}
+
+export function FeedGrid({ searchQuery = "" }: FeedGridProps) {
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -16,9 +20,16 @@ export function FeedGrid() {
     error,
     refetch,
   } = useInfiniteQuery<FeedResponse>({
-    queryKey: ["/api/feed"],
+    queryKey: ["/api/feed", searchQuery],
     queryFn: async ({ pageParam = 1 }) => {
-      const response = await fetch(`/api/feed?page=${pageParam}&pageSize=8`);
+      const params = new URLSearchParams({
+        page: String(pageParam),
+        pageSize: "8",
+      });
+      if (searchQuery.trim()) {
+        params.append("q", searchQuery.trim());
+      }
+      const response = await fetch(`/api/feed?${params}`);
       if (!response.ok) throw new Error("Failed to fetch listings");
       return response.json();
     },
