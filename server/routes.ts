@@ -223,6 +223,135 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // community posts endpoints
+  app.post("/api/community/posts", async (req, res) => {
+    try {
+      const { userId, postType, title, content, city, tags } = req.body;
+
+      if (!userId || !postType || !title || !content) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      // mock post data
+      const post = {
+        id: Math.floor(Math.random() * 100000),
+        userId,
+        postType,
+        title,
+        content,
+        city,
+        tags: tags || [],
+        likesCount: 0,
+        commentsCount: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      res.json(post);
+    } catch (error: any) {
+      console.error("Error creating community post:", error);
+      res.status(500).json({ error: "Failed to create post" });
+    }
+  });
+
+  app.get("/api/community/posts", async (req, res) => {
+    try {
+      const city = req.query.city as string | undefined;
+      const limit = Math.min(50, parseInt(req.query.limit as string) || 20);
+
+      const posts = [
+        {
+          id: 1,
+          userId: "user_1",
+          postType: "tip",
+          title: "Best neighborhoods for families in SF",
+          content: "After living here for 5 years, I've found that Noe Valley and Sunset are great for families. Good schools, parks, and safe streets.",
+          city: "San Francisco",
+          tags: ["family", "neighborhoods"],
+          likesCount: 24,
+          commentsCount: 8,
+          createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+          updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+        },
+        {
+          id: 2,
+          userId: "user_2",
+          postType: "question",
+          title: "Parking situation in Mission District?",
+          content: "I'm considering a place in Mission. How's the parking? Is street parking impossible or doable with patience?",
+          city: "San Francisco",
+          tags: ["parking", "mission"],
+          likesCount: 12,
+          commentsCount: 15,
+          createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+          updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+        },
+      ];
+
+      const filtered = city ? posts.filter(p => p.city === city) : posts;
+      res.json(filtered.slice(0, limit));
+    } catch (error: any) {
+      console.error("Error fetching community posts:", error);
+      res.status(500).json({ error: "Failed to fetch posts" });
+    }
+  });
+
+  // saved listings endpoints
+  app.post("/api/saved", async (req, res) => {
+    try {
+      const { userId, listingId, notes } = req.body;
+
+      if (!userId || !listingId) {
+        return res.status(400).json({ error: "Missing userId or listingId" });
+      }
+
+      const saved = {
+        id: Math.floor(Math.random() * 100000),
+        userId,
+        listingId,
+        notes,
+        createdAt: new Date(),
+      };
+
+      res.json(saved);
+    } catch (error: any) {
+      console.error("Error saving listing:", error);
+      res.status(500).json({ error: "Failed to save listing" });
+    }
+  });
+
+  app.get("/api/saved", async (req, res) => {
+    try {
+      const userId = req.query.userId as string;
+
+      if (!userId) {
+        return res.status(400).json({ error: "Missing userId" });
+      }
+
+      const saved = [];
+      res.json(saved);
+    } catch (error: any) {
+      console.error("Error fetching saved listings:", error);
+      res.status(500).json({ error: "Failed to fetch saved listings" });
+    }
+  });
+
+  app.delete("/api/saved/:listingId", async (req, res) => {
+    try {
+      const userId = req.query.userId as string;
+      const listingId = req.params.listingId;
+
+      if (!userId) {
+        return res.status(400).json({ error: "Missing userId" });
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error unsaving listing:", error);
+      res.status(500).json({ error: "Failed to unsave listing" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
