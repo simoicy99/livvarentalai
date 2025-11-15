@@ -5,8 +5,6 @@ import { seedAgentData } from "./lib/agent/seedAgentData";
 
 const app = express();
 
-await seedAgentData();
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -41,6 +39,8 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  await seedAgentData();
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
