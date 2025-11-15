@@ -15,6 +15,15 @@ export default function ListingDetail() {
 
   const { data: listing, isLoading } = useQuery<Listing>({
     queryKey: ["/api/listing", listingId],
+    queryFn: async () => {
+      const response = await fetch(`/api/listing/${listingId}`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch listing");
+      }
+      return response.json();
+    },
     enabled: !!listingId,
   });
 
