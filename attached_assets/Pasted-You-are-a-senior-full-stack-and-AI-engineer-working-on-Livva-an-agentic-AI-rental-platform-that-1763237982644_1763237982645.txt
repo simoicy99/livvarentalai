@@ -1,0 +1,347 @@
+You are a senior full stack and AI engineer working on **Livva**, an agentic AI rental platform that now uses **Locus** as the core payment and control layer for AI agents.
+
+You may **refactor, reorganize, and improve any prior code** generated for this project, as long as the result is more coherent, maintainable, and aligned with this prompt. Preserve good ideas. Replace messy or duplicative parts.
+
+Livva already has some pieces:
+- A landing page and scrollable feed showing rental listings
+- Integration stubs for Zillow and Apartments.com
+- Some early Locus and Stripe integration ideas
+- A concept of agents that help with rental workflows
+
+Your job now is to reshape all that into a **clean, cohesive system** where:
+
+1. Livva has **multiple AI agents** that do more than escrow.
+2. Locus is used as the **payment infrastructure for agents**.
+3. The UI clearly showcases agents and payments working together.
+4. The codebase is production-like: modular, typed, and understandable.
+
+====================================
+CORE PRODUCT IDEA
+====================================
+
+Livva is an **AI-first rental platform**. Instead of humans doing everything manually, we have agents:
+
+- **Listing Agent**
+  - Creates, updates, and syncs listings across internal DB and external sources.
+  - Can auto tweak price or description based on performance signals.
+
+- **Match Agent**
+  - Reads tenant preferences and profiles.
+  - Fetches listings (internal + Zillow + Apartments.com stubs).
+  - Scores and ranks matches.
+
+- **Communication Agent**
+  - Prepares message text for inquiries, viewing requests, follow ups.
+  - Manages state like “awaiting landlord reply”, “no response, send reminder”.
+
+- **Payments and Escrow Agent**
+  - Uses **Locus** as its primary payment rail to:
+    - Create rental deposit escrows.
+    - Pay micro-fees between agents or to external services.
+    - Track and update payment status.
+  - Optionally falls back to Stripe Checkout if Locus is not configured.
+
+These agents are not separate processes at this stage. They can be implemented as **service modules** with clear methods, and their “AI” can be simple logic plus comments for where to plug in real models later.
+
+====================================
+STACK AND GENERAL ARCHITECTURE
+====================================
+
+Use:
+- **Next.js with App Router** and **TypeScript**.
+- React for UI.
+- Minimal styling with CSS Modules or global CSS (no assumption of Tailwind).
+
+Top-level structure (you can adjust paths, but keep clear separation):
+
+- `src/app/`
+  - `page.tsx` – home landing page with hero + feed + agent panels
+  - `api/`
+    - `listings/route.ts` – unified feed of listings (internal + stubs)
+    - `match/route.ts` – endpoint that returns matched listings for a given tenant profile
+    - `messages/route.ts` – endpoint where Communication Agent suggests or logs messages
+    - `payments/escrow/create/route.ts` – create Locus (or Stripe) deposit
+    - `payments/escrow/status/route.ts` – check escrow or payment status
+    - `payments/escrow/release/route.ts` – release or finalize a deposit (logical)
+- `src/components/`
+  - `Hero.tsx`
+  - `ListingFeed.tsx` (scrolling 4-block feed)
+  - `ListingCard.tsx`
+  - `AgentConsole.tsx` (shows what agents are doing)
+  - `EscrowPanel.tsx` (escrow and payment status)
+- `src/lib/`
+  - `agents/`
+    - `listingAgent.ts`
+    - `matchAgent.ts`
+    - `communicationAgent.ts`
+    - `paymentsAgent.ts`
+  - `integrations/`
+    - `locusClient.ts`
+    - `stripeClient.ts`
+    - `zillow.ts`
+    - `apartmentsDotCom.ts`
+  - `listings.ts` (internal mock listings)
+  - `env.ts` (env helpers)
+  - `escrowService.ts` (stores escrow records, can be in memory for now)
+- `src/types/`
+  - `listing.ts`
+  - `tenant.ts`
+  - `escrow.ts`
+  - `message.ts`
+
+You are free to rename and reorganize if it produces a clearer design.
+
+====================================
+DOMAIN TYPES
+====================================
+
+Unify and clean up types.
+
+`listing.ts`:
+
+- `export type ListingSource = "internal" | "zillow" | "apartments";`
+
+- `export interface Listing {`
+  - `id: string;`
+  - `title: string;`
+  - `description: string;`
+  - `price: number;`            // monthly rent
+  - `address: string;`
+  - `city: string;`
+  - `state: string;`
+  - `imageUrl: string;`
+  - `source: ListingSource;`
+  - `bedrooms?: number;`
+  - `bathrooms?: number;`
+  - `sqft?: number;`
+  - `availableFrom?: string;`   // ISO date
+  - `createdAt?: string;`       // ISO date
+- `}`
+
+`tenant.ts`:
+
+- `export interface TenantProfile {`
+  - `id: string;`
+  - `name: string;`
+  - `email: string;`
+  - `budgetMin: number;`
+  - `budgetMax: number;`
+  - `preferredCities: string[];`
+  - `bedrooms?: number;`
+  - `moveInDate?: string;`
+- `}`
+
+`escrow.ts`:
+
+- `export type EscrowStatus = "pending" | "funded" | "released" | "refunded" | "failed";`
+- `export type PaymentChannel = "locus" | "stripe";`
+
+- `export interface EscrowRecord {`
+  - `id: string;`
+  - `listingId: string;`
+  - `tenantEmail: string;`
+  - `channel: PaymentChannel;`
+  - `amount: number;`          // USDC or USD, depending on channel
+  - `currency: string;`
+  - `status: EscrowStatus;`
+  - `locusTransactionId?: string;`
+  - `locusEscrowId?: string;`
+  - `stripeSessionId?: string;`
+  - `createdAt: string;`
+  - `updatedAt: string;`
+- `}`
+
+`message.ts`:
+
+- `export type MessageRole = "tenant" | "landlord" | "agent";`
+
+- `export interface ConversationMessage {`
+  - `id: string;`
+  - `role: MessageRole;`
+  - `text: string;`
+  - `createdAt: string;`
+- `}`
+
+====================================
+AGENTS AND THEIR RESPONSIBILITIES
+====================================
+
+You already have agent ideas, now formalize them as modules.
+
+`listingAgent.ts`:
+- Functions:
+  - `getUnifiedListingFeed(options)` – merge internal, Zillow, and Apartments.com stubs into one list of `Listing`.
+  - `suggestListingAdjustments(listing)` – returns simple suggestions like “lower price by 5 percent” or “update description to mention washer and dryer”.
+- Keep data fetching and normalization here.
+
+`matchAgent.ts`:
+- Function:
+  - `matchListingsToTenant(tenant: TenantProfile, listings: Listing[]): Listing[]`
+- Simple scoring:
+  - Score higher if price within budget, city in preferences, bedrooms match.
+  - Sort by score.
+- Add a comment that AI ranking could replace this.
+
+`communicationAgent.ts`:
+- Functions:
+  - `generateInitialMessage(tenant, listing)`
+  - `generateFollowUpMessage(tenant, listing, context)`
+- Simple templates for now. Later this would call an LLM.
+
+`paymentsAgent.ts`:
+- This is where **Locus + Stripe** live conceptually.
+- Functions:
+  - `createDeposit(tenantEmail, listingId, amount, channelPreference?)`
+    - If Locus env is present, use Locus.
+    - Else if Stripe env present, use Stripe.
+  - `checkDepositStatus(escrowId)`
+  - `releaseDeposit(escrowId)`
+
+This module will call `escrowService` plus `locusClient` or `stripeClient`.
+
+====================================
+LOCUS INTEGRATION
+====================================
+
+Use the public docs at `docs.paywithlocus.com` in designing the client.
+
+`locusClient.ts` should:
+- Read config from env (use helper in `env.ts`).
+- Wrap the MCP or HTTP tools such as:
+  - `get_payment_context`
+  - `send_to_email`
+  - `send_to_contact`
+- Provide TypeScript functions like:
+
+  - `export async function getPaymentContext(): Promise<PaymentContext> { ... }`
+  - `export async function createEscrowToEmail(email: string, amount: number, memo: string): Promise<{ transactionId: string; escrowId: string; status: string; }>`  
+
+Use real HTTP requests if possible and structure code so that actual Locus URLs and payloads can be plugged in directly following their docs. Where you need to guess details, isolate them in one place and document assumptions in comments.
+
+Do not hardcode secrets. Read them from environment.
+
+====================================
+STRIPE INTEGRATION (FALLBACK)
+====================================
+
+`stripeClient.ts`:
+- Import Stripe SDK.
+- Initialize with `STRIPE_SECRET_KEY`.
+- Implement `createDepositCheckoutSession({ amountUSD, tenantEmail, listingId })` that returns `{ url, sessionId }`.
+- Use Checkout Sessions with mode "payment" and simple line item “Rental deposit for listing {listingId}”.
+
+If Locus is not configured, Payments Agent should use Stripe.
+
+====================================
+ESCROW SERVICE
+====================================
+
+`escrowService.ts`:
+- Maintain an in memory map of `EscrowRecord`s for the demo.
+- Functions:
+  - `createEscrowRecord({ listingId, tenantEmail, amount, channel, currency, locusIds?, stripeSessionId? })`
+  - `getEscrowById(id: string)`
+  - `listEscrowsForTenant(tenantEmail: string)`
+  - `updateEscrowStatus(id: string, status: EscrowStatus)`
+- In a real system this would be a database. Comment that clearly.
+
+====================================
+API ROUTES
+====================================
+
+Implement these Next.js routes or refactor existing ones to match:
+
+1. `GET /api/listings`
+   - Calls Listing Agent to return unified listing feed with pagination.
+   - Used by the home feed.
+
+2. `POST /api/match`
+   - Body: `{ tenantProfile: TenantProfile }`
+   - Calls Listing Agent to get feed, then Match Agent to rank for this tenant.
+   - Returns ranked listings.
+
+3. `POST /api/messages`
+   - Body: `{ type: "initial" | "followUp"; tenant: TenantProfile; listingId: string; context?: string }`
+   - Calls Communication Agent.
+   - Returns suggested message text.
+
+4. `POST /api/payments/escrow/create`
+   - Body: `{ listingId: string; tenantEmail: string; amount: number; currency: string }`
+   - Calls Payments Agent `createDeposit`.
+   - Returns `EscrowRecord` plus any `paymentUrl` (for Stripe or Locus, if needed).
+
+5. `GET /api/payments/escrow/status?id=...`
+   - Calls Payments Agent `checkDepositStatus`.
+   - Returns updated `EscrowRecord`.
+
+6. `POST /api/payments/escrow/release`
+   - Body: `{ escrowId: string }`
+   - Calls Payments Agent `releaseDeposit`.
+   - For Locus, update status logically and document assumptions.
+   - For Stripe, update logically as well.
+
+====================================
+FRONTEND UI
+====================================
+
+Refactor and improve the landing page to clearly show:
+
+1. **Hero section**
+   - Headline: “Smarter rentals, powered by agents and programmable payments”
+   - Subtext explaining that Livva uses AI agents with Locus to manage listings, matching, communication, and deposits.
+   - A simple call to action.
+
+2. **Scrollable listing feed**
+   - Reuse or refine your existing grid.
+   - On desktop, keep a 2x2 layout so **4 blocks fill the viewport at a time**.
+   - On scroll, load more via `/api/listings`.
+   - Each `ListingCard` has:
+     - title, price, city
+     - actions:
+       - “Ask agent to match” or “Contact via agent”
+       - “Reserve with deposit”
+
+3. **Agent console panel**
+   - When user interacts with a listing:
+     - Show which agents are acting (Match, Communication, Payments).
+     - Show bullet steps with short explanations.
+   - For example:
+     - “Match agent selected 3 similar listings in your budget.”
+     - “Communication agent drafted a message to the landlord.”
+     - “Payments agent is creating a deposit via Locus.”
+
+4. **Escrow panel**
+   - Show a list of `EscrowRecord` for the current tenant email (use a mock tenant for now).
+   - Columns: listing, amount, channel, status.
+   - Buttons:
+     - “Open payment” if a payment URL exists.
+     - “Release escrow” when status is funded.
+
+Make the UI clean and minimal. Use basic CSS. No need for complex design systems.
+
+====================================
+STYLE AND COMMENTS
+====================================
+
+- Use TypeScript everywhere.
+- Use modern React (function components and hooks).
+- Add **short comments** that focus on **why**, in lower case.
+- Avoid unnecessary abstractions. Keep it simple but modular.
+- It is fine to rename or move prior components and files for clarity.
+
+====================================
+GOAL
+====================================
+
+End result:
+
+A live Next.js app where:
+- The home page shows a working listing feed.
+- A user can click on a listing and see agent-driven behavior:
+  - matching other listings
+  - drafting messages
+  - creating deposits
+- The Payments Agent uses **Locus** as the primary programmable payment rail, with **Stripe** as an optional fallback.
+- The system demonstrates Livva as a multi agent rental platform where money flows through Locus under clear controls.
+
+You are allowed to refactor old code to best fit this architecture and product vision.
