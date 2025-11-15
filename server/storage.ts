@@ -7,6 +7,8 @@ import {
   tenantPreferences,
   agentActivities,
   payments,
+  communityPosts,
+  savedListings,
   type User,
   type UpsertUser,
   type Listing,
@@ -23,6 +25,10 @@ import {
   type InsertAgentActivity,
   type Payment,
   type InsertPayment,
+  type CommunityPost,
+  type InsertCommunityPost,
+  type SavedListing,
+  type InsertSavedListing,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, sql, gte, lte } from "drizzle-orm";
@@ -62,6 +68,17 @@ export interface IStorage {
   getPayment(id: string): Promise<Payment | undefined>;
   getPaymentByStripeIntentId(stripePaymentIntentId: string): Promise<Payment | undefined>;
   updatePaymentStatus(id: string, status: Payment["status"]): Promise<Payment>;
+  
+  createCommunityPost(post: InsertCommunityPost): Promise<CommunityPost>;
+  getCommunityPosts(city?: string, limit?: number): Promise<CommunityPost[]>;
+  getCommunityPost(id: number): Promise<CommunityPost | undefined>;
+  updateCommunityPost(id: number, data: Partial<InsertCommunityPost>): Promise<CommunityPost>;
+  deleteCommunityPost(id: number): Promise<void>;
+  
+  saveListing(save: InsertSavedListing): Promise<SavedListing>;
+  getSavedListings(userId: string): Promise<SavedListing[]>;
+  unsaveListing(userId: string, listingId: number): Promise<void>;
+  isListingSaved(userId: string, listingId: number): Promise<boolean>;
   
   getDashboardStats(userId: string, userType: string): Promise<any>;
 }
