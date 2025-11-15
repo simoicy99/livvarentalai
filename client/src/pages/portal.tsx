@@ -54,7 +54,7 @@ export default function Portal() {
 
   const { data: matches = [], isLoading: loadingMatches } = useQuery<MatchResult[]>({
     queryKey: ["/api/matches", userId],
-    enabled: false,
+    enabled: !!userId,
   });
 
   const deleteSavedMutation = useMutation({

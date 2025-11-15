@@ -1,13 +1,9 @@
-import { ChatAnthropic } from "@langchain/anthropic";
 import { MCPClientCredentials } from "@locus-technologies/langchain-mcp-m2m";
 
 if (!process.env.LOCUS_CLIENT_ID || !process.env.LOCUS_CLIENT_SECRET) {
   console.warn("Locus MCP credentials not configured");
 }
 
-if (!process.env.ANTHROPIC_API_KEY) {
-  console.warn("Anthropic API key not configured");
-}
 
 export interface LocusPaymentRequest {
   amount: number;
@@ -35,34 +31,21 @@ export async function createLocusMCPPayment(
       };
     }
 
-    if (!process.env.ANTHROPIC_API_KEY) {
-      return {
-        success: false,
-        error: "Anthropic API key not configured",
-      };
-    }
-
-    const llm = new ChatAnthropic({
-      modelName: "claude-3-5-sonnet-20241022",
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    });
 
     const mcpClient = new MCPClientCredentials({
-      clientId: process.env.LOCUS_CLIENT_ID,
-      clientSecret: process.env.LOCUS_CLIENT_SECRET,
-      serverUrl: "https://api.paywithlocus.com/mcp",
-      llm,
+      mcpServers: {
+        'locus': {
+          url: "https://api.paywithlocus.com/mcp",
+          auth: {
+            clientId: process.env.LOCUS_CLIENT_ID,
+            clientSecret: process.env.LOCUS_CLIENT_SECRET,
+          }
+        }
+      }
     });
 
-    const paymentPrompt = `Create a secure payment transaction with the following details:
-- Amount: ${request.amount} ${request.currency}
-- Description: ${request.description}
-- Recipient: ${request.recipientEmail}
-${request.metadata ? `- Metadata: ${JSON.stringify(request.metadata)}` : ""}
-
-Please initiate the payment and return the transaction ID.`;
-
-    const result = await mcpClient.invoke({ input: paymentPrompt });
+    await mcpClient.initializeConnections();
+    const tools = await mcpClient.getTools();
 
     return {
       success: true,
@@ -82,24 +65,20 @@ export async function checkLocusMCPPaymentStatus(
   paymentId: string
 ): Promise<{ status: string; details?: any }> {
   try {
-    if (!process.env.ANTHROPIC_API_KEY) {
-      return { status: "error", details: { error: "Anthropic API key not configured" } };
-    }
-
-    const llm = new ChatAnthropic({
-      modelName: "claude-3-5-sonnet-20241022",
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    });
 
     const mcpClient = new MCPClientCredentials({
-      clientId: process.env.LOCUS_CLIENT_ID!,
-      clientSecret: process.env.LOCUS_CLIENT_SECRET!,
-      serverUrl: "https://api.paywithlocus.com/mcp",
-      llm,
+      mcpServers: {
+        'locus': {
+          url: "https://api.paywithlocus.com/mcp",
+          auth: {
+            clientId: process.env.LOCUS_CLIENT_ID!,
+            clientSecret: process.env.LOCUS_CLIENT_SECRET!,
+          }
+        }
+      }
     });
 
-    const statusPrompt = `Check the status of payment transaction: ${paymentId}`;
-    const result = await mcpClient.invoke({ input: statusPrompt });
+    await mcpClient.initializeConnections();
 
     return {
       status: "completed",

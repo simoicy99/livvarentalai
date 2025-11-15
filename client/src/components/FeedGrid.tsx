@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import type { Listing, FeedResponse } from "../../../shared/types";
 import { FeedCard } from "./FeedCard";
+import { CommunityPostCard } from "./CommunityPostCard";
 import { Button } from "@/components/ui/button";
 
 interface FeedGridProps {
@@ -39,7 +40,7 @@ export function FeedGrid({ searchQuery = "" }: FeedGridProps) {
     initialPageParam: 1,
   });
 
-  const allListings: Listing[] = data?.pages.flatMap((page) => page.items) ?? [];
+  const allItems: any[] = data?.pages.flatMap((page) => page.items) ?? [];
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -67,9 +68,13 @@ export function FeedGrid({ searchQuery = "" }: FeedGridProps) {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {allListings.map((listing) => (
-          <FeedCard key={listing.id} listing={listing} />
-        ))}
+        {allItems.map((item) => {
+          if (item.type === 'post') {
+            return <CommunityPostCard key={`post-${item.id}`} post={item} />;
+          } else {
+            return <FeedCard key={`listing-${item.id}`} listing={item} />;
+          }
+        })}
       </div>
 
       {error && (
@@ -90,9 +95,9 @@ export function FeedGrid({ searchQuery = "" }: FeedGridProps) {
         </div>
       )}
 
-      {!hasNextPage && allListings.length > 0 && !isLoading && (
+      {!hasNextPage && allItems.length > 0 && !isLoading && (
         <div className="text-center py-8 text-muted-foreground" data-testid="end-feed">
-          You've reached the end of the listings
+          You've reached the end
         </div>
       )}
 

@@ -1,5 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { eq, and } from "drizzle-orm";
+import { db } from "./db";
+import * as schema from "../shared/schema";
 import { getFeedPage } from "./lib/agent/agentService";
 import { createDepositSession } from "./lib/integrations/locus";
 import { matchListingsToTenant } from "./lib/agent/matchAgent";
@@ -36,16 +39,52 @@ export function registerRoutes(app: Express): Server {
       const maxPrice = req.query.maxPrice ? parseFloat(req.query.maxPrice as string) : undefined;
       const searchQuery = req.query.q as string | undefined;
 
-      const result = await getFeedPage(page, pageSize, {
+      const listingsResult = await getFeedPage(page, pageSize, {
         cityFilter,
         maxPrice,
         searchQuery,
       });
 
-      res.json(result);
+      const communityPosts = await db
+        .select()
+        .from(schema.communityPosts)
+        .orderBy(schema.communityPosts.createdAt)
+        .limit(3);
+
+      const mixedItems = [
+        ...listingsResult.items.map((item: any) => ({ ...item, type: 'listing' })),
+        ...communityPosts.map((post: any) => ({ ...post, type: 'post' }))
+      ].sort((a: any, b: any) => {
+        const dateA = 'createdAt' in a ? new Date(a.createdAt as string).getTime() : Date.now();
+        const dateB = 'createdAt' in b ? new Date(b.createdAt as string).getTime() : Date.now();
+        return dateB - dateA;
+      });
+
+      res.json({
+        items: mixedItems,
+        page: listingsResult.page,
+        pageSize: listingsResult.pageSize,
+        hasMore: listingsResult.hasMore,
+      });
     } catch (error: any) {
       console.error("Error fetching feed:", error);
       res.status(500).json({ error: "Failed to fetch feed" });
+    }
+  });
+
+  // get matches for user
+  app.get("/api/matches/:userId", async (req, res) => {
+    try {
+      const userId = req.params.userId;
+      
+      if (!userId) {
+        return res.status(400).json({ error: "Missing userId" });
+      }
+
+      res.json([]);
+    } catch (error: any) {
+      console.error("Error fetching matches:", error);
+      res.status(500).json({ error: "Failed to fetch matches" });
     }
   });
 
@@ -173,16 +212,16 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.get("/api/escrow", async (req, res) => {
+  app.get("/api/escrow/:userId", async (req, res) => {
     try {
-      const { tenantEmail } = req.query;
+      const userId = req.params.userId;
 
-      if (!tenantEmail || typeof tenantEmail !== "string") {
-        return res.status(400).json({ error: "Missing tenantEmail" });
+      if (!userId) {
+        return res.status(400).json({ error: "Missing userId" });
       }
 
-      const escrows = listEscrowsForTenant(tenantEmail);
-      res.json({ escrows });
+      const escrows = listEscrowsForTenant(userId);
+      res.json(escrows);
     } catch (error: any) {
       console.error("Error listing escrows:", error);
       res.status(500).json({ error: "Failed to list escrows" });
@@ -360,15 +399,19 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.get("/api/saved", async (req, res) => {
+  app.get("/api/saved/:userId", async (req, res) => {
     try {
-      const userId = req.query.userId as string;
+      const userId = req.params.userId;
 
       if (!userId) {
         return res.status(400).json({ error: "Missing userId" });
       }
 
-      const saved = [];
+      const saved = await db
+        .select()
+        .from(schema.savedListings)
+        .where(eq(schema.savedListings.userId, userId));
+      
       res.json(saved);
     } catch (error: any) {
       console.error("Error fetching saved listings:", error);
@@ -378,12 +421,21 @@ export function registerRoutes(app: Express): Server {
 
   app.delete("/api/saved/:listingId", async (req, res) => {
     try {
-      const userId = req.query.userId as string;
+      const { userId } = req.body;
       const listingId = req.params.listingId;
 
-      if (!userId) {
-        return res.status(400).json({ error: "Missing userId" });
+      if (!userId || !listingId) {
+        return res.status(400).json({ error: "Missing userId or listingId" });
       }
+
+      await db
+        .delete(schema.savedListings)
+        .where(
+          and(
+            eq(schema.savedListings.userId, userId),
+            eq(schema.savedListings.listingId, listingId)
+          )
+        );
 
       res.json({ success: true });
     } catch (error: any) {

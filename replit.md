@@ -7,25 +7,33 @@ Livva is a rental listing aggregator with vibrant orange branding, featuring agg
 **Current Features (MVP):**
 - Vibrant orange theme (#ff6b35 primary color)
 - Navbar with integrated search bar, agent demo link, and profile menu
-- Infinite scroll feed of aggregated listings (Livva, Zillow, Apartments.com)
+- **Mixed feed** showing both rental listings and community posts in infinite scroll
 - Full-text search across listings (title, description, city, address)
 - Clickable listing cards navigating to detailed view
 - Individual listing detail pages with full property information
+- **Personal Portal** (`/portal`) with tabbed interface:
+  - **Saved Listings**: Bookmarked properties with notes
+  - **Matches**: AI-scored tenant-listing pairs (currently empty, demo ready)
+  - **Chat Logs**: Conversation history (placeholder for future messaging)
+  - **Finances**: Escrow management and deposit tracking
 - **Multi-agent architecture with 4 specialized agents:**
   - **Match Agent**: Scores and ranks listings based on tenant preferences (budget, city, bedrooms)
   - **Communication Agent**: Generates personalized messages for tenant-landlord communication
   - **Payments Agent**: Creates secure deposit escrows via Locus (primary) or Stripe (fallback)
   - **Listing Agent**: Aggregates listings from multiple sources with search filtering
+- **Locus MCP Integration**: OAuth Client Credentials flow for programmable payment transactions
+- **Community Posts**: Agentic behavior display with user posts and agent activity feed
 - Agent demo page showcasing full workflow (matching → messaging → deposits)
 - Agent console displaying real-time agent activity
 - Escrow panel for managing deposit status and releases
 - All listings focused on San Francisco Bay Area locations
 
 **Future Vision:**
-- AI-powered agents using OpenAI for intelligent matchmaking and message generation
+- AI-powered agents using OpenAI for intelligent matchmaking and message generation (infrastructure ready)
+- Real-time chat with landlords via Communication Agent
 - Trust network with verification scores
 - Role-based dashboards (landlord, tenant, admin)
-- Database persistence for escrows and messages
+- Full Clerk authentication integration (temporarily disabled during development)
 
 ## User Preferences
 
