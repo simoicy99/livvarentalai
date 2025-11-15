@@ -1,0 +1,491 @@
+You are a senior full stack and AI engineer working on Livva, an agentic AI rental platform.
+
+Your job in this project:
+1. Build a backend "agent service" that aggregates and ranks rental listings from:
+   - Internal Livva data
+   - Placeholder Zillow integration
+   - Placeholder Apartments.com integration
+2. Build a working home landing page that:
+   - Has a hero section for Livva
+   - Features a scrollable feed, visually similar in concept to a Facebook Groups feed
+   - Shows 4 listing blocks filling the viewport on desktop (2 columns x 2 rows)
+   - Uses infinite scroll or auto pagination
+3. Integrate a Locus payment layer (https://paywithlocus.com/) for deposit flows using a dedicated integration module and API route, mocked but realistic.
+4. Structure everything cleanly so this can grow into a production ready Livva app.
+
+==============================
+PROJECT CONTEXT AND TONE
+==============================
+
+About Livva:
+- Livva is an agentic AI rental platform.
+- AI agents handle:
+  - Cross platform listing management
+  - Matching tenants to rooms or units
+  - Communication and coordination
+  - Payment and deposit flows via partners like Locus
+  - Trust scoring across tenants and landlords
+
+This repo is the early product:
+- It should feel like a real application, not a toy.
+- The home page must be visually solid and actually work.
+- The backend must expose API endpoints that the frontend uses for a live feed.
+
+Founder preferences:
+- Name: Shu Simon (Simon Shu).
+- Use TypeScript wherever possible.
+- Use React with either:
+  - Next.js App Router (preferred) or
+  - A React + Node Express setup if Next is not available.
+- Use plain CSS or CSS modules. Do NOT assume Tailwind is already there. If you add Tailwind, show the configuration and file changes required.
+- Comments are:
+  - Short
+  - Focused on the why
+  - All lowercase
+- Avoid using the em dash character in UI copy.
+- Code must be copy paste ready.
+
+==============================
+TECH STACK AND STRUCTURE
+==============================
+
+Assume a Next.js style setup (App Router) with TypeScript.
+
+Use a structure similar to:
+
+- src/
+  - app/
+    - page.tsx                (home landing page)
+    - api/
+      - feed/route.ts         (GET listings feed)
+      - deposit/route.ts      (POST create deposit session via Locus)
+  - components/
+    - Hero.tsx
+    - FeedGrid.tsx
+    - FeedCard.tsx
+    - InfiniteScrollSentinel.tsx
+  - lib/
+    - agent/
+      - agentService.ts
+    - integrations/
+      - locus.ts
+      - zillow.ts
+      - apartmentsDotCom.ts
+    - config/
+      - env.ts
+  - types/
+    - listing.ts
+
+If Replit template uses a different structure, adapt but keep the intent: clear separation between components, api routes, agent logic, and integrations.
+
+==============================
+DOMAIN MODEL
+==============================
+
+Create a central Listing type for all sources.
+
+File: src/types/listing.ts
+
+- Types:
+
+  - ListingSource: "internal" | "zillow" | "apartments"
+  - Listing:
+
+    - id: string
+    - title: string
+    - description: string
+    - price: number
+    - address: string
+    - city: string
+    - state: string
+    - imageUrl: string
+    - source: ListingSource
+    - bedrooms?: number
+    - bathrooms?: number
+    - sqft?: number
+    - availableFrom?: string   (ISO date string)
+    - createdAt?: string       (ISO date string)
+
+Add doc comments only where really needed and focus on why.
+
+==============================
+ENVIRONMENT CONFIG
+==============================
+
+Create src/lib/config/env.ts with helpers to read env variables with runtime checks. Supported env variables:
+
+- LOCUS_API_KEY
+- ZILLOW_API_KEY (placeholder for future real integration)
+- APARTMENTS_API_KEY (placeholder)
+- LIVVA_INTERNAL_API_KEY (optional, for future internal data access)
+
+Example:
+
+- export function getLocusApiKey(): string { ... } that throws if missing.
+- For Zillow and Apartments.com keys, keep them optional for now and only used in comments.
+
+==============================
+INTEGRATIONS
+==============================
+
+You will implement three integration modules with mocked data but realistic shapes. These must not scrape or violate terms of service. They are placeholders for real compliant integrations later.
+
+1) Locus integration
+
+File: src/lib/integrations/locus.ts
+
+- Purpose:
+  - Provide functions to initiate a deposit session using Locus.
+  - For now, this should mock an HTTP call but be structured as if calling their API.
+
+- Types:
+
+  - CreateDepositParams:
+    - listingId: string
+    - amount: number
+    - currency: string ("usd")
+    - tenantId: string
+    - landlordId: string
+
+  - CreateDepositResponse:
+    - sessionId: string
+    - checkoutUrl: string
+    - expiresAt: string
+
+- Functions:
+
+  - async function createDepositSession(params: CreateDepositParams): Promise<CreateDepositResponse>
+
+    Implementation details:
+    - Read LOCUS_API_KEY via env helper.
+    - For now, simulate an API call:
+      - Generate a fake sessionId (e.g. "loc_sess_" + Date.now()).
+      - Generate a fake checkoutUrl (e.g. "https://paywithlocus.com/checkout/" + sessionId).
+      - Set expiresAt to a future ISO date.
+    - Add comments that in production this would perform a real HTTPS POST to Locus.
+
+2) Zillow integration
+
+File: src/lib/integrations/zillow.ts
+
+- Purpose:
+  - Expose a function that returns a list of Listing objects that represent Zillow data, but uses mocked data.
+
+- Function:
+
+  - async function getZillowListings(): Promise<Listing[]>
+
+    Implementation:
+    - Return an array of 3 to 5 mock listings.
+    - Set source = "zillow".
+    - Use realistic rental data fields.
+    - Add a comment explaining that in production we would use official or partner APIs, and that scraping is not included here to comply with terms of service.
+
+3) Apartments.com integration
+
+File: src/lib/integrations/apartmentsDotCom.ts
+
+- Same pattern as Zillow:
+
+  - async function getApartmentsListings(): Promise<Listing[]>
+
+    Implementation:
+    - Return an array of 3 to 5 mock listings.
+    - Set source = "apartments".
+    - Add comments about future official integration and no scraping.
+
+==============================
+AGENT SERVICE
+==============================
+
+File: src/lib/agent/agentService.ts
+
+This is the core "agent" that aggregates listings from different sources and returns feed pages.
+
+Implement:
+
+- import the Listing type and ListingSource.
+- import getZillowListings and getApartmentsListings.
+- Implement a function getInternalListings() that returns a few mocked "Livva internal" listings with source = "internal".
+
+- Define an interface:
+
+  - interface GetFeedOptions {
+      page: number;      // 1 based
+      pageSize: number;  // default 20
+      cityFilter?: string;
+      maxPrice?: number;
+    }
+
+- Implement:
+
+  - async function getFeedListings(options: GetFeedOptions): Promise<Listing[]>
+
+    Steps:
+    1. Fetch listings from:
+       - internal
+       - Zillow
+       - Apartments.com
+    2. Merge them into a single array.
+    3. Optionally filter:
+       - If cityFilter is provided, match city case insensitive.
+       - If maxPrice is provided, filter out listings with price > maxPrice.
+    4. Rank them:
+       - Sort by availableFrom if available, most recent first.
+       - If availableFrom missing, sort by createdAt.
+       - Fall back to price ascending.
+       - This is simple now but comment that AI ranking will be used later.
+    5. Apply pagination:
+       - Convert page and pageSize to slice indices.
+       - Return only the subset for the requested page.
+
+- Also expose a helper:
+
+  - async function getFeedPage(page: number, pageSize: number): Promise<{ items: Listing[]; hasMore: boolean; }>
+
+    - Calls getFeedListings with page and pageSize.
+    - Computes hasMore by checking if total items count is greater than end index.
+    - To get total count without repeated work, you can have an internal helper that gets all then paginates.
+
+Add concise comments explaining why the ranking is structured this way and that AI can plug in at a ranking step later.
+
+==============================
+API ROUTES
+==============================
+
+Assume Next.js app router style.
+
+1) Feed route
+
+File: src/app/api/feed/route.ts
+
+- Method: GET
+- Query parameters:
+  - page (default 1)
+  - pageSize (default 20)
+  - city (optional)
+  - maxPrice (optional)
+
+- Behavior:
+  - Parse and validate query params.
+  - Call getFeedPage with given page and pageSize and filters.
+  - Return JSON:
+    {
+      items: Listing[];
+      page: number;
+      pageSize: number;
+      hasMore: boolean;
+    }
+
+- Handle invalid params:
+  - If page or pageSize is not a number or less than 1, default to 1 and 20.
+  - If something fails, return a 500 with a simple JSON error.
+
+2) Deposit route
+
+File: src/app/api/deposit/route.ts
+
+- Method: POST
+- Request body JSON:
+  {
+    listingId: string;
+    amount: number;
+    currency: string;
+    tenantId: string;
+    landlordId: string;
+  }
+
+- Behavior:
+  - Validate required fields.
+  - Call createDepositSession from locus.ts.
+  - Return JSON:
+    {
+      sessionId: string;
+      checkoutUrl: string;
+      expiresAt: string;
+    }
+
+- Error handling:
+  - If missing fields, return 400 with a clear error message.
+  - If env key is missing, return 500 with message about configuration.
+
+==============================
+FRONTEND - COMPONENTS AND LAYOUT
+==============================
+
+Goal: A home landing page with a hero plus a scrollable feed of listings that behaves like a feed in Facebook Groups. On desktop, the viewport should usually show 4 listing cards at a time in a 2 x 2 grid.
+
+General styling:
+- Use CSS modules or a main global CSS file.
+- Use Flexbox or CSS Grid to create a responsive layout.
+- Desktop:
+  - Feed grid: 2 columns, with card height controlled so that roughly 2 rows fit the viewport height without extra gaps.
+- Mobile:
+  - 1 column layout for the feed cards.
+
+1) Hero component
+
+File: src/components/Hero.tsx
+
+- Props: none for now.
+- Content:
+  - A headline like: "Smarter rentals, powered by agents"
+  - A short subheading explaining that Livva uses AI agents to handle listings, matching, and deposits so people can focus on finding a home.
+  - A primary button: "Join the waitlist" (no need to wire an actual form yet, you can leave a placeholder click handler).
+- Style:
+  - Centered content with generous padding on desktop.
+  - Stacked vertical layout on mobile.
+  - Use a clean and modern font stack.
+
+Avoid em dash in text. Use simple commas or periods.
+
+2) Feed card component
+
+File: src/components/FeedCard.tsx
+
+- Props: listing: Listing
+- Content:
+  - Image at the top using listing.imageUrl.
+  - Title.
+  - Price (formatted, for example "$2,400 / month").
+  - Address (street, city, state).
+  - Source badge with text:
+    - "Livva" for internal
+    - "Zillow"
+    - "Apartments.com"
+  - Description truncated to a few lines.
+  - Action buttons:
+    - "View details" (for now, console.log the listing id in an onClick)
+    - "Hold with Locus"
+
+- On "Hold with Locus" click:
+  - Call POST /api/deposit with:
+    - listingId from props
+    - amount equal to listing.price (or a fixed deposit like 500)
+    - currency "usd"
+    - tenantId and landlordId can be temporary hardcoded placeholder values for now.
+  - Show a basic loading state while waiting.
+  - On success, log the checkoutUrl and show a simple message or alert: "Deposit session created. Redirecting soon."
+  - Do not actually perform redirect logic yet unless you want to open the URL in a new tab.
+
+3) Feed grid component with infinite scroll
+
+File: src/components/FeedGrid.tsx
+
+- State:
+  - listings: Listing[]
+  - page: number
+  - hasMore: boolean
+  - isLoading: boolean
+  - error: string | null
+
+- Behavior:
+  - On mount, load page 1 via GET /api/feed?page=1&pageSize=8 (since we want 4 cards per viewport, 8 is a good chunk).
+  - Display the cards in a grid:
+    - Desktop: 2 columns.
+    - Mobile: 1 column.
+  - Add a sentinel div at the bottom that uses IntersectionObserver to trigger loading the next page when it comes into view and hasMore is true and not currently loading.
+
+- Implementation details:
+  - Use a custom hook or inline logic with useEffect and useRef for IntersectionObserver.
+  - When the sentinel is visible:
+    - Set isLoading true.
+    - Fetch /api/feed with page + 1.
+    - Append new items to listings.
+    - Update page and hasMore.
+    - Set isLoading false.
+  - Show a loading indicator at the bottom when isLoading is true.
+  - If error occurs, show a friendly message and a retry button that attempts to refetch the current page.
+
+- Layout height:
+  - Ensure the feed area is tall enough so that typically 2 rows of cards are seen on desktop.
+  - For example, the page layout can be:
+    - Hero at the top (not full screen)
+    - Feed below, with min-height: 70vh so user can scroll and see card groups.
+
+4) Infinite scroll sentinel component (optional)
+
+File: src/components/InfiniteScrollSentinel.tsx
+
+- A small component that renders a div with a ref.
+- Accepts a callback like onVisible: () => void.
+- Uses IntersectionObserver internally.
+- This keeps FeedGrid cleaner.
+
+==============================
+HOME PAGE
+==============================
+
+File: src/app/page.tsx
+
+- Import Hero and FeedGrid.
+- Layout:
+  - A main container with some padding on desktop, smaller padding on mobile.
+  - Hero at the top.
+  - A section title like "Live listings" or "Explore possible matches".
+  - FeedGrid below, filling most of the viewport.
+
+- Page structure:
+
+  - <main>
+      <Hero />
+      <section>
+        <h2>Available rentals</h2>
+        <FeedGrid />
+      </section>
+    </main>
+
+Make sure responsiveness works:
+- Use CSS media queries or CSS module classes to switch between 1 and 2 columns.
+- On screens of typical laptop height, the user should see about 4 cards at a time inside the feed area.
+
+==============================
+AI AND AGENT THINKING HOOK
+==============================
+
+In agentService.ts, add a placeholder function where AI ranking can be added later:
+
+- function scoreListing(listing: Listing): number
+  - For now, return a simple score derived from:
+    - Newer availableFrom gets higher score.
+    - Lower price gets a small bonus.
+  - Comment that later this function can call an AI model to incorporate preferences, trust scores, and behavior patterns.
+
+When sorting, you can do:
+- listings.sort((a, b) => scoreListing(b) - scoreListing(a));
+
+==============================
+ERROR HANDLING AND EDGE CASES
+==============================
+
+- If /api/feed returns an empty items array on page 1:
+  - Show a friendly "No listings yet" message.
+- If /api/feed fails (network or server error):
+  - FeedGrid should display an error message with a retry button.
+- If /api/deposit fails:
+  - Show a simple alert or inline error "Could not create deposit session. Please try again later."
+
+==============================
+RUNNING AND DEPENDENCIES
+==============================
+
+- Use npm or yarn. Add any dependencies in package.json.
+- Likely dependencies:
+  - "react"
+  - "react-dom"
+  - "next"
+  - TypeScript if not already present
+
+In a final section of the code or a README comment, describe:
+
+- How to run the app:
+  - Install dependencies.
+  - Set env variables in a .env.local file.
+  - Run the dev server.
+- Which env vars are required for the code not to throw (for example, stub LOCUS_API_KEY with a dummy string in development).
+- How to extend the agent service in the future for:
+  - Real Zillow and Apartments.com APIs.
+  - Real Locus integration.
+  - Trust scoring and true AI ranking.
+
+You are building this as if it were the foundation for a real Livva production system, not a toy. Keep code clean, modular, and ready to extend.
