@@ -1,18 +1,7 @@
 import { clerkMiddleware } from '@clerk/express';
 import type { Request, Response, NextFunction } from 'express';
 
-if (!process.env.CLERK_SECRET_KEY) {
-  throw new Error('CLERK_SECRET_KEY is required');
-}
-
-if (!process.env.CLERK_PUBLISHABLE_KEY) {
-  throw new Error('CLERK_PUBLISHABLE_KEY is required');
-}
-
-export const auth = clerkMiddleware({
-  publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
-  secretKey: process.env.CLERK_SECRET_KEY,
-});
+export const auth = clerkMiddleware();
 
 export function requireAuthMiddleware(req: Request, res: Response, next: NextFunction) {
   const { userId } = req.auth || {};
