@@ -2,7 +2,7 @@
 
 ## Overview
 
-Livva is a rental listing aggregator with vibrant orange branding, featuring aggregated listings from Livva, Zillow, and Apartments.com. The platform currently focuses on San Francisco Bay Area listings and includes search functionality, clickable infinite-scroll feed, and Locus deposit integration. The long-term vision includes a 5-layer agent architecture handling posting/updates, search/matching, communication, verification/trust, and payments.
+Livva is a room rental aggregator with vibrant orange branding, featuring aggregated room listings from Livva, Zillow, and Apartments.com. All listings are realistic private room rentals in San Francisco with prices ranging from $1,000-$2,500/month based on neighborhood. The platform includes search functionality, clickable infinite-scroll feed, and Locus deposit integration. The long-term vision includes a 5-layer agent architecture handling posting/updates, search/matching, communication, verification/trust, and payments.
 
 **Current Features (MVP):**
 - Vibrant orange theme (#ff6b35 primary color)
@@ -21,12 +21,12 @@ Livva is a rental listing aggregator with vibrant orange branding, featuring agg
   - **Communication Agent**: Generates personalized messages for tenant-landlord communication
   - **Payments Agent**: Creates secure deposit escrows via Locus (primary) or Stripe (fallback)
   - **Listing Agent**: Aggregates listings from multiple sources with search filtering
-- **Locus MCP Integration**: Official @locus-technologies/langchain-mcp-m2m library with OAuth Client Credentials flow using ChatAnthropic for AI-driven payment transactions
+- **Locus MCP Integration**: Official @locus-technologies/langchain-mcp-m2m library using LangGraph React agent with createReactAgent() pattern. Uses OAuth Client Credentials flow with ChatAnthropic (Claude 3.5 Sonnet) for AI-driven payment tool invocations (send_to_email, get_payment_context, send_to_contact)
 - **Community Posts**: Agentic behavior display with user posts and agent activity feed
 - Agent demo page showcasing full workflow (matching → messaging → deposits)
 - Agent console displaying real-time agent activity
 - Escrow panel for managing deposit status and releases
-- All listings focused on San Francisco Bay Area locations
+- All listings are realistic SF room rentals with neighborhood-based pricing ($1,000-$2,500/month)
 
 **Future Vision:**
 - AI-powered agents using OpenAI for intelligent matchmaking and message generation (infrastructure ready)
@@ -123,7 +123,7 @@ Preferred communication style: Simple, everyday language.
   - `agent/agentService.ts` (Listing Agent): Listing aggregation from multiple sources with search filtering
   - `agent/matchAgent.ts` (Match Agent): Scores and ranks listings based on tenant preferences
   - `agent/communicationAgent.ts` (Communication Agent): Generates personalized messages
-  - `agent/locusMCPAgent.ts` (Locus MCP Agent): Official Locus MCP integration using ChatAnthropic and OAuth client credentials for programmable payments
+  - `agent/locusMCPAgent.ts` (Locus MCP Agent): Official Locus MCP integration using LangGraph React agent pattern with ChatAnthropic (Claude 3.5 Sonnet) and OAuth Client Credentials flow. Exports getLocusAgent() for natural-language tool invocation (send_to_email, get_payment_context, send_to_contact)
   - `agent/paymentsAgent.ts` (Payments Agent): Manages deposits via Locus (primary) or Stripe (fallback)
 - **Supporting Services:**
   - `services/escrowService.ts`: In-memory escrow record storage (will be database in production)
