@@ -256,6 +256,49 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  app.post("/api/rent/payment", async (req, res) => {
+    try {
+      const { rentalId, amount, currency, tenantEmail } = req.body;
+
+      if (!rentalId || !amount || !tenantEmail) {
+        return res.status(400).json({ 
+          error: "Missing required fields: rentalId, amount, tenantEmail" 
+        });
+      }
+
+      if (amount <= 0) {
+        return res.status(400).json({ error: "Amount must be greater than 0" });
+      }
+
+      // simulate stripe payment processing
+      const paymentIntentId = `pi_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+      // record trust event for on-time payment
+      await recordTrustEvent({
+        userId: tenantEmail,
+        eventType: "on_time_rent_payment",
+        metadata: {
+          rentalId,
+          amount,
+          currency,
+          paymentIntentId,
+        },
+      });
+
+      res.json({
+        success: true,
+        paymentIntentId,
+        amount,
+        currency,
+        status: "succeeded",
+        message: "Payment processed successfully. Your trust score has been improved!",
+      });
+    } catch (error: any) {
+      console.error("Error processing rent payment:", error);
+      res.status(500).json({ error: error.message || "Failed to process payment" });
+    }
+  });
+
   // legacy deposit endpoint for backwards compatibility
   app.post("/api/deposit", async (req, res) => {
     try {

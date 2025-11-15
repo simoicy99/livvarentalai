@@ -24,6 +24,7 @@ const EVENT_SCORE_DELTAS: Record<string, number> = {
   CLEAN_MOVE_IN: 5,
   VERIFIED_IDENTITY: 10,
   PAYMENT_ON_TIME: 3,
+  on_time_rent_payment: 10,
   POSITIVE_REVIEW: 4,
   LATE_CANCEL: -8,
   NO_SHOW: -15,
@@ -55,15 +56,37 @@ export function initializeTrustProfile(email: string): TrustProfile {
   return profile;
 }
 
-export function recordEvent(email: string, eventType: string, reason?: string): TrustProfile {
+export function recordEvent(params: { userId: string; eventType: string; metadata?: any }): TrustProfile;
+export function recordEvent(email: string, eventType: string, reason?: string): TrustProfile;
+export function recordEvent(
+  emailOrParams: string | { userId: string; eventType: string; metadata?: any },
+  eventType?: string,
+  reason?: string
+): TrustProfile {
+  let email: string;
+  let type: string;
+  let eventReason: string;
+
+  if (typeof emailOrParams === 'string') {
+    email = emailOrParams;
+    type = eventType!;
+    eventReason = reason || `Event: ${type}`;
+  } else {
+    email = emailOrParams.userId;
+    type = emailOrParams.eventType;
+    eventReason = emailOrParams.metadata 
+      ? `${type} - ${JSON.stringify(emailOrParams.metadata)}`
+      : `Event: ${type}`;
+  }
+
   const profile = initializeTrustProfile(email);
-  const delta = EVENT_SCORE_DELTAS[eventType] || 0;
+  const delta = EVENT_SCORE_DELTAS[type] || 0;
 
   const event: TrustEvent = {
     email,
-    type: eventType,
+    type,
     delta,
-    reason: reason || `Event: ${eventType}`,
+    reason: eventReason,
     timestamp: new Date().toISOString(),
   };
 
@@ -71,9 +94,9 @@ export function recordEvent(email: string, eventType: string, reason?: string): 
   profile.score = Math.max(0, Math.min(100, profile.score + delta));
   profile.lastUpdated = new Date().toISOString();
 
-  if (eventType === 'VERIFIED_IDENTITY') profile.verifiedIdentity = true;
-  if (eventType === 'VERIFIED_PHONE') profile.verifiedPhone = true;
-  if (eventType === 'VERIFIED_EMAIL') profile.verifiedEmail = true;
+  if (type === 'VERIFIED_IDENTITY') profile.verifiedIdentity = true;
+  if (type === 'VERIFIED_PHONE') profile.verifiedPhone = true;
+  if (type === 'VERIFIED_EMAIL') profile.verifiedEmail = true;
 
   trustProfiles.set(email, profile);
   return profile;
